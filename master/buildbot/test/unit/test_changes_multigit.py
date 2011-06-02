@@ -39,11 +39,20 @@ class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
-        return run('git', ['init'], path=self.workd)
+        with file(self.workd+'/bar', 'w') as f:
+            f.write('spong')
+        d = run('git', ['init'], path=self.workd)
+        def populate(_):
+            return run('git', ['add', 'bar'], path=self.workd)
+        d.addCallback(populate)
+        def commit(_):
+            return run('git', ['commit', '-m', 'foo'], path=self.workd)
+        d.addCallback(commit)
+        return d
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
     def testGetLog(self):
-        d = run('git', ['log'], path=self.workd, expected_return_code=128)
+        d = run('git', ['log'], path=self.workd)
         def check((o,e)):
             self.assertIn('foo', o)
         return d.addCallback(check)
