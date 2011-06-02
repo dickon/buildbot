@@ -22,7 +22,7 @@ from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
 
-class UnexpectedOutputValue(Exception):
+class UnexpectedExitCode(Exception):
     pass
 
 def run(*kl, **kd):
@@ -30,7 +30,7 @@ def run(*kl, **kd):
     d = getProcessOutputAndValue(*kl, **kd)
     def check((o,e,ec)):
         if ec != expected_return_code:
-            raise UnexpectedOutputValue(kl, kd, o, e, ec, expected_return_code)
+            raise UnexpectedExitCode(kl, kd, o, e, ec, expected_return_code)
         return (o,e)
     d.addCallback(check)
     return d
