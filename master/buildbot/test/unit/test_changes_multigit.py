@@ -59,5 +59,6 @@ class TestGitPoller(unittest.TestCase):
             return find_ref(self.workd, 'refs/heads/master')
         d.addCallback(check_new)
         def compare_commits(_):
+            self.assertEqauls(self.commit2['message'], 'xyzzy\n')
             self.assertNotEqual(self.commit1['revision'], self.commit2['revision'])
         return d
