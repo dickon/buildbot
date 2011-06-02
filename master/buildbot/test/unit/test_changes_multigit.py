@@ -21,19 +21,21 @@ from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
 
+
+def add_commit(workd, filename, contents):
+    with file(workd+'/'+filename, 'w') as f:
+        f.write(contents)
+    d = run('git', ['add', 'bar'], path=workd)
+    def commit(_):
+        return run('git', ['commit', '-m', 'foo'], path=workd)
+    return d.addCallback(commit)
+
 class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
-        with file(self.workd+'/bar', 'w') as f:
-            f.write('spong')
         d = run('git', ['init'], path=self.workd)
-        def populate(_):
-            return run('git', ['add', 'bar'], path=self.workd)
-        d.addCallback(populate)
-        def commit(_):
-            return run('git', ['commit', '-m', 'foo'], path=self.workd)
-        d.addCallback(commit)
+        d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong'))
         return d
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
@@ -49,5 +51,6 @@ class TestGitPoller(unittest.TestCase):
         d.addCallback(check_ref)
         def verify_metadata(data):
             self.assertIn('foo', data['message'])
+            
         d.addCallback(verify_metadata)
         return d

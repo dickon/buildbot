@@ -23,8 +23,6 @@ def clean(text):
     """Convert all whitespace in to simple spaces"""
     return ' '.join(text.split())
 
-    
-
 def run(*kl, **kd):
     expected_return_code = kd.pop('expected_return_code', 0)
     d = getProcessOutputAndValue(*kl, **kd)
