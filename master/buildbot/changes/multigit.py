@@ -43,7 +43,33 @@ def find_ref(gitd, ref):
     return d.addCallback(analyse)
 
 def get_metadata(gitd, hash):
-    pass
+    d = run('git', ['show', '--summary', hash], path=gitd)
+    def decode((outs,_)):
+        out = outs.split('\n')
+        author_lines = [x for x in out if x.startswith('Author:')]
+        result = {}
+        if author_lines:
+            result['author'] = ' '.join( author_lines[0].split()[1:-1])
+            result['email'] = author_lines[0].split()[-1]
+        date_lines = [x for x in out if x.startswith('Date:')]
+        if date_lines:
+            result['date'] = ' '.join(date_lines[0].split()[1:])
+        i = 0
+        while i < len(out) and out[i]:
+            i += 1
+        i += 1
+        j = i
+        while j < len(out) and out[j]:
+            j += 1
+        message = '\n'.join(out[i:j])
+
+        if len(message) > 4000:
+            message = message[:4000]+'...'
+        while message.startswith(' ') or  message.startswith('\t'):
+            message = message[1:]
+        result['message'] = message
+        return result
+    return d.addCallback(decode)
 
 class MultiGit:
     def __init__(self, repositories):
