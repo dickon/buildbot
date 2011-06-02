@@ -23,6 +23,8 @@ def clean(text):
     """Convert all whitespace in to simple spaces"""
     return ' '.join(text.split())
 
+    
+
 def run(*kl, **kd):
     expected_return_code = kd.pop('expected_return_code', 0)
     d = getProcessOutputAndValue(*kl, **kd)
@@ -39,6 +41,9 @@ def find_ref(gitd, ref):
         for line in clean(out).split('\n'):
             return line.split()[0]
     return d.addCallback(analyse)
+
+def get_metadata(gitd, hash):
+    pass
 
 class MultiGit:
     def __init__(self, repositories):

@@ -16,7 +16,7 @@
 from twisted.trial import unittest
 from twisted.internet import defer
 from exceptions import Exception
-from buildbot.changes.multigit import MultiGit, find_ref, run
+from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run
 from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
@@ -45,6 +45,6 @@ class TestGitPoller(unittest.TestCase):
         d.addCallback(check)
         def check_ref(hash):
             self.assertEquals(len(hash),40)
-            return get_metadata(self.world, hash)
+            return get_metadata(self.workd, hash)
         d.addCallback(check_ref)
         return d
