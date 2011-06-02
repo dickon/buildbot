@@ -22,12 +22,12 @@ from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
 
 
-def add_commit(workd, filename, contents):
+def add_commit(workd, filename, contents, message):
     with file(workd+'/'+filename, 'w') as f:
         f.write(contents)
-    d = run('git', ['add', 'bar'], path=workd)
+    d = run('git', ['add', filename], path=workd)
     def commit(_):
-        return run('git', ['commit', '-m', 'foo'], path=workd)
+        return run('git', ['commit', '-m', message], path=workd)
     return d.addCallback(commit)
 
 class TestGitPoller(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestGitPoller(unittest.TestCase):
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
         d = run('git', ['init'], path=self.workd)
-        d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong'))
+        d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong', 'foo'))
         return d
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
@@ -51,6 +51,13 @@ class TestGitPoller(unittest.TestCase):
         d.addCallback(check_ref)
         def verify_metadata(data):
             self.assertIn('foo', data['message'])
-            
+            self.commit1 = data
+            return add_commit(self.workd, 'a', 'b', 'xyzzy')
         d.addCallback(verify_metadata)
+        def check_new(commit2):
+            self.commit2 = commit2
+            return find_ref(self.workd, 'refs/heads/master')
+        d.addCallback(check_new)
+        def compare_commits(_):
+            self.assertNotEqual(self.commit1['revision'], self.commit2['revision'])
         return d
