@@ -15,26 +15,12 @@
 
 from twisted.trial import unittest
 from twisted.internet import defer
-from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
 from exceptions import Exception
-from buildbot.changes.multigit import MultiGit, find_ref
+from buildbot.changes.multigit import MultiGit, find_ref, run
 from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
 
-class UnexpectedExitCode(Exception):
-    pass
-
-def run(*kl, **kd):
-    expected_return_code = kd.pop('expected_return_code', 0)
-    d = getProcessOutputAndValue(*kl, **kd)
-    def check((o,e,ec)):
-        if ec != expected_return_code:
-            raise UnexpectedExitCode(kl, kd, o, e, ec, expected_return_code)
-        return (o,e)
-    d.addCallback(check)
-    return d
-    
 class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
