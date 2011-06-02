@@ -15,7 +15,7 @@
 
 from twisted.trial import unittest
 from twisted.internet import defer
-from twisted.internet.utils import getProcessOutput
+from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
 from exceptions import Exception
 from buildbot.changes import multigit
 from buildbot.test.util import changesource, gpo
@@ -26,14 +26,15 @@ class TestGitPoller(unittest.TestCase):
 
     def setUp(self):
         self.workd = mkdtemp('.testgit')
-        d = getProcessOutput('git', ['init'], path=self.workd)
+        d = getProcessOutputAndValue('git', ['init'], path=self.workd)
         return d
     def tearDown(self):
-        d = getProcessOutput('rm', ['-rf', self.workd])
+        d = getProcessOutputAndValue('rm', ['-rf', self.workd])
         return d
     def testGetLog(self):
-        d = getProcessOutput('git', ['log'], pathj=self.workd)
-        def check(o,e,ec):
-            self.assertEquals(ec, 0)
-        d.addcallback(check)
+        d = getProcessOutputAndValue('git', ['log'], path=self.workd)
+        def check((o,e,ec)):
+            self.assertIn('bad default revision', e)
+            self.assertEquals(ec, 128)
+        d.addCallback(check)
         return d
