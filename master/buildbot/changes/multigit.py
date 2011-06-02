@@ -13,6 +13,33 @@
 #
 # Copyright Buildbot Team Members
 
+
+from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
+
+class UnexpectedExitCode(Exception):
+    pass
+
+def clean(text):
+    """Convert all whitespace in to simple spaces"""
+    return ' '.join(text.split())
+
+def run(*kl, **kd):
+    expected_return_code = kd.pop('expected_return_code', 0)
+    d = getProcessOutputAndValue(*kl, **kd)
+    def check((o,e,ec)):
+        if ec != expected_return_code:
+            raise UnexpectedExitCode(kl, kd, o, e, ec, expected_return_code)
+        return (o,e)
+    d.addCallback(check)
+    return d
+
+def find_ref(gitd, ref):
+    d = run('git', ['show-ref', ref], path=gitd)
+    def analyse((out, _)):
+        for line in clean(out).split('\n'):
+            return line.split()[0]
+    return d.addCallback(analyse)
+
 class MultiGit:
     def __init__(self, repositories):
         self.repositories = repositories
