@@ -17,7 +17,7 @@ from twisted.trial import unittest
 from twisted.internet import defer
 from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
 from exceptions import Exception
-from buildbot.changes import multigit
+from buildbot.changes.multigit import MultiGit
 from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
@@ -38,11 +38,12 @@ def run(*kl, **kd):
 class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
+        self.multgit = MultiGit([self.workd])
         return run('git', ['init'], path=self.workd)
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
     def testGetLog(self):
         d = run('git', ['log'], path=self.workd, expected_return_code=128)
         def check((o,e)):
-            self.assertIn('bad default revision', e)
+            self.assertIn('foo', o)
         return d.addCallback(check)
