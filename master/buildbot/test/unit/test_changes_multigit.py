@@ -38,14 +38,11 @@ def run(*kl, **kd):
 class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
-        d = run('git', ['init'], path=self.workd)
-        return d
+        return run('git', ['init'], path=self.workd)
     def tearDown(self):
-        d = run('rm', ['-rf', self.workd])
-        return d
+        return run('rm', ['-rf', self.workd])
     def testGetLog(self):
         d = run('git', ['log'], path=self.workd, expected_return_code=128)
         def check((o,e)):
             self.assertIn('bad default revision', e)
-        d.addCallback(check)
-        return d
+        return d.addCallback(check)
