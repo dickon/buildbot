@@ -45,7 +45,7 @@ def get_metadata(gitd, hash):
     def decode((outs,_)):
         out = outs.split('\n')
         author_lines = [x for x in out if x.startswith('Author:')]
-        result = {}
+        result = {'revision':hash}
         if author_lines:
             result['author'] = ' '.join( author_lines[0].split()[1:-1])
             result['email'] = author_lines[0].split()[-1]
