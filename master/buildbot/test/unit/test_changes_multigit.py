@@ -55,4 +55,9 @@ class TestGitPoller(unittest.TestCase):
         d = run('git', ['log'], path=self.workd)
         def check((o,e)):
             self.assertIn('foo', o)
-        return d.addCallback(check)
+            return find_ref(self.workd, 'refs/heads/master')
+        d.addCallback(check)
+        def check_ref(hash):
+            self.assertEquals(len(hash),40)
+            return get_metadata(self.world, hash)
+        return d
