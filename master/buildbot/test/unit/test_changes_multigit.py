@@ -22,19 +22,30 @@ from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
 
-class TestGitPoller(unittest.TestCase):
+class UnexpectedOutputValue(Exception):
+    pass
 
+def run(*kl, **kd):
+    expected_return_code = kd.pop('expected_return_code', 0)
+    d = getProcessOutputAndValue(*kl, **kd)
+    def check((o,e,ec)):
+        if ec != expected_return_code:
+            raise UnexpectedOutputValue(kl, kd, o, e, ec, expected_return_code)
+        return (o,e)
+    d.addCallback(check)
+    return d
+    
+class TestGitPoller(unittest.TestCase):
     def setUp(self):
         self.workd = mkdtemp('.testgit')
-        d = getProcessOutputAndValue('git', ['init'], path=self.workd)
+        d = run('git', ['init'], path=self.workd)
         return d
     def tearDown(self):
-        d = getProcessOutputAndValue('rm', ['-rf', self.workd])
+        d = run('rm', ['-rf', self.workd])
         return d
     def testGetLog(self):
-        d = getProcessOutputAndValue('git', ['log'], path=self.workd)
-        def check((o,e,ec)):
+        d = run('git', ['log'], path=self.workd, expected_return_code=128)
+        def check((o,e)):
             self.assertIn('bad default revision', e)
-            self.assertEquals(ec, 128)
         d.addCallback(check)
         return d
