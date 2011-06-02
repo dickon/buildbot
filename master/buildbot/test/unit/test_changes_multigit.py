@@ -47,4 +47,7 @@ class TestGitPoller(unittest.TestCase):
             self.assertEquals(len(hash),40)
             return get_metadata(self.workd, hash)
         d.addCallback(check_ref)
+        def verify_metadata(data):
+            self.assertIn('foo', data['message'])
+        d.addCallback(verify_metadata)
         return d
