@@ -33,15 +33,18 @@ def run(*kl, **kd):
     d.addCallback(check)
     return d
 
+def git(gitd, *kl):
+    return run('git', kl, path=gitd)
+
 def find_ref(gitd, ref):
-    d = run('git', ['show-ref', ref], path=gitd)
+    d = git(gitd, 'show-ref', ref)
     def analyse((out, _)):
         for line in clean(out).split('\n'):
             return line.split()[0]
     return d.addCallback(analyse)
 
 def get_metadata(gitd, hash):
-    d = run('git', ['show', '--summary', hash], path=gitd)
+    d = git(gitd, 'show', '--summary', hash)
     def decode((outs,_)):
         out = outs.split('\n')
         author_lines = [x for x in out if x.startswith('Author:')]
@@ -68,9 +71,6 @@ def get_metadata(gitd, hash):
         result['message'] = message
         return result
     return d.addCallback(decode)
-
-def git(gitd, *kl):
-    return run('git', kl, path=gitd)
 
 class MultiGit:
     def __init__(self, repositories):
