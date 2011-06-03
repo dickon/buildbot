@@ -17,6 +17,7 @@ from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
 from buildbot.changes.multigit import untagged_revisions
 from tempfile import mkdtemp
+from time import time
 
 def add_commit(workd, filename, contents, message):
     """Add a commit to workd which sets filename to contain
@@ -103,6 +104,5 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
         """Check that the head of master is less than 10 seconds old"""
         deferred = find_ref(self.workd, 'refs/heads/master').addCallback(
             lambda rev: get_metadata(self.workd, rev))
-        deferred.addCallback(lambda metadata: 
-                             self.failUnless(metadata['commit_time'] > time()-10))
-        return deferred
+        return deferred.addCallback(
+            lambda d: self.failUnless(d['commit_time'] > time()-10))
