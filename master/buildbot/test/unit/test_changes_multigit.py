@@ -18,23 +18,34 @@ from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
 from tempfile import mkdtemp
 
 def add_commit(workd, filename, contents, message):
-    with file(workd+'/'+filename, 'w') as f:
-        f.write(contents)
-    d = git(workd, 'add', filename)
+    """Add a commit to workd which sets filename to contain
+    contents with commit message"""
+    with file(workd+'/'+filename, 'w') as fobj:
+        fobj.write(contents)
+    deferred = git(workd, 'add', filename)
     def commit(_):
+        """Perform the commit"""
         return git(workd, 'commit', '-m', message)
-    return d.addCallback(commit)
+    return deferred.addCallback(commit)
 
 class PopulatedRepository:
-    def git(self, *l):
-        return git(self.workd, *l)
+    """Create a test git repository in temporary space with a known
+    commit and tag, and delete it when the test is done
+    """
+    def git(self, *arguments):
+        """Run a git command with arguments on our test repository"""
+        return git(self.workd, *arguments)
     def setUp(self):
+        """Prepare the test repsotiroy"""
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
-        d = self.git('init')
-        d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong', 'foo'))
-        return d.addCallback(lambda _: git(self.workd, 'tag', 'tag1'))
+        deferred = self.git('init')
+        deferred.addCallback(lambda _: add_commit(self.workd, 'bar', 
+                                     'spong', 'foo'))
+        deferred.addCallback(lambda _: git(self.workd, 'tag', 'tag1'))
+        return deferred
     def tearDown(self):
+        """Remove the test repository"""
         return run('rm', ['-rf', self.workd])
 
 class TestGitPoller(PopulatedRepository, unittest.TestCase):
