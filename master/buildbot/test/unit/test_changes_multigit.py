@@ -99,4 +99,10 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
     def testGetTag(self):
         """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
-
+    def testCommitAge(self):
+        """Check that the head of master is less than 10 seconds old"""
+        deferred = find_ref(self.workd, 'refs/heads/master').addCallback(
+            lambda rev: get_metadata(self.workd, rev))
+        deferred.addCallback(lambda metadata: 
+                             self.failUnless(metadata['commit_time'] > time()-10))
+        return deferred
