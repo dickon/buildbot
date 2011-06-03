@@ -16,6 +16,7 @@
 from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
 from buildbot.changes.multigit import untagged_revisions
+from buildbot.test.util import changesource
 from tempfile import mkdtemp
 from time import time
 
@@ -108,3 +109,15 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
             self.failUnless(metadata['commit_time'] > time()-10)
             self.failUnless(metadata['commit_time'] < time())
         return deferred.addCallback(check_commit_time)
+
+class TestMultiGit(PopulatedRepository, unittest.TestCase,
+                   changesource.ChangeSourceMixin):
+    def setUp(self):
+        deferred = PopulatedRepository.setUp(self)
+        deferred.addCallback(lambda _: self.setUpChangeSource())
+        def create(_):
+            self.multigit = MultiGit([self.workd], self.master)
+        return deferred.addCallback(create)
+    def testPoll(self):
+        return self.multigit.poll()
+        

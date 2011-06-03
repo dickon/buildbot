@@ -92,6 +92,6 @@ def untagged_revisions(gitd):
     return deferred.addCallback(clean).addCallback(linesplitdropsplit)
 
 class MultiGit:
-    def __init__(self, repositories):
+    def __init__(self, repositories, master):
         self.repositories = repositories
-        
+        self.master = master
