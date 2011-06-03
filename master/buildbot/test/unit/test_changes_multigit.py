@@ -83,6 +83,18 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
             self.assertNotEqual(commits[0]['revision'], commits[1]['revision'])
         deferred.addCallback(compare_commits)
         return deferred
+    def testCommitWatcher(self):
+        """Test that we see refs/heads/master change,
+        and can read back commit messages"""
+        deferred = self.multigit.untagged_revisions()
+        def check_none_unmatched(unmatched):
+            self.assertEquals(unmatched, [])
+            return add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred.addCallback(check_none_unmatched)
+        deferred.addCallback(lambda _: self.multigit.untagged_revisions())
+        deferred.addCallback(lambda unmatched: self.assertEqauls(
+                len(unmatched),1))
+        return deferred
     def testGetTag(self):
         """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
