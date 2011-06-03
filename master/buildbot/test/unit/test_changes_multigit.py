@@ -16,7 +16,7 @@
 from twisted.trial import unittest
 from twisted.internet import defer
 from exceptions import Exception
-from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run
+from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, tag
 from buildbot.test.util import changesource, gpo
 from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
@@ -36,7 +36,7 @@ class PopulatedRepository:
         self.multgit = MultiGit([self.workd])
         d = run('git', ['init'], path=self.workd)
         d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong', 'foo'))
-        return d
+        return d.addCallback(lambda _: tag(self.workd, 'tag1'))
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
 

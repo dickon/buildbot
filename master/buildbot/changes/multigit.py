@@ -69,6 +69,9 @@ def get_metadata(gitd, hash):
         return result
     return d.addCallback(decode)
 
+def tag(gitd, tag):
+    return run('git', ['tag', tag], path=gitd)
+
 class MultiGit:
     def __init__(self, repositories):
         self.repositories = repositories
