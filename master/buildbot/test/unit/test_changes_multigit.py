@@ -51,28 +51,33 @@ class PopulatedRepository:
 class TestGitPoller(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
     def testGetLog(self):
-        d = self.git('log')
+        deferred = self.git('log')
+        commits = []
         def check((o,e)):
             self.assertIn('foo', o)
             return find_ref(self.workd, 'refs/heads/master')
-        d.addCallback(check)
+        deferred.addCallback(check)
         def check_ref(hash):
-            self.assertEquals(len(hash),40)
+            """Check the hash is the length we expect"""
+            self.assertEquals(len(hash), 40)
             return get_metadata(self.workd, hash)
-        d.addCallback(check_ref)
+        deferred.addCallback(check_ref)
         def verify_metadata(data):
+            """Check the message is what we expect"""
             self.assertIn('foo', data['message'])
-            self.commit1 = data
+            commits.append(data)
             return add_commit(self.workd, 'a', 'b', 'xyzzy')
-        d.addCallback(verify_metadata)
+        deferred.addCallback(verify_metadata)
         def check_new(commit2):
-            self.commit2 = commit2
+            """Stash away the second commit"""
+            commits.append(commit2)
             return find_ref(self.workd, 'refs/heads/master')
-        d.addCallback(check_new)
+        deferred.addCallback(check_new)
         def compare_commits(_):
-            self.assertEqauls(self.commit2['message'], 'xyzzy\n')
-            self.assertNotEqual(self.commit1['revision'], self.commit2['revision'])
-        return d
+            """Check the commits are like we expect"""
+            self.assertEqauls(commits[1]['message'], 'xyzzy\n')
+            self.assertNotEqual(commits[0]['revision'], commits[1]['revision'])
+        return deferred
     def testGetTag(self):
         """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
