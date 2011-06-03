@@ -73,9 +73,7 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
             self.assertEqauls(self.commit2['message'], 'xyzzy\n')
             self.assertNotEqual(self.commit1['revision'], self.commit2['revision'])
         return d
-
-class TestTag(PopulatedRepository, unittest.TestCase):
-    """Test tag detection"""
     def testGetTag(self):
         """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
+
