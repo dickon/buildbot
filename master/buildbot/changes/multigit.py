@@ -98,6 +98,23 @@ def get_metadata_for_revisions(revisions, gitd):
     return DeferredList([get_metadata(gitd, revision[0]) for 
                          revision in revisions])
 
+def find_fresh_tag(gitds, tag_format, index=1):
+    """Find a fresh tag across all gitds based on tag_format
+    interpolate with an integer index"""
+    tag = tag_format % (index,)
+    deferred = DeferredList([find_ref(gitd, 'refs/tags/'+tag) for gitd in gitds],
+                            consumeErrors=True)
+    def check(dlo):
+        all_fresh = True
+        for found, _ in dlo:
+            if found:
+                all_fresh = False # this repository has the tag
+        if all_fresh:
+            return tag
+        else:
+            return find_fresh_tag(gitds, tag_format, index +1)
+    return deferred.addCallback(check)
+
 class MultiGit:
     def __init__(self, repositories, master, tag_format='tag%d'):
         self.repositories = repositories
@@ -123,17 +140,23 @@ class MultiGit:
                     revseq.append(rev)
                 if reporevs:
                     latestrev.append( reporevs[0][1])
-            return revseq, latestrev, 1
+            return revseq, latestrev
 
         deferred.addCallback(flatten2)
-        def make_tag((newrevs, latestrev, index)):
+        def determine_tag((newrevs, latestrev)):
             if newrevs == []:
+                return (None, newrevs, latestrev)
+            subd = find_fresh_tag(self.repositories, self.tag_format)
+            return subd.addCallback( lambda tag: (tag, newrevs, latestrev))
+        deferred.addCallback(determine_tag)
+        def apply_tag((tag, newrevs, latestrev)):
+            if tag is None:
                 return
-            
-            tag = self.tag_format % (index,)
             def tag_done(dlo):
                 if [dlr for dlr in dlo if not dlr[0]]:
-                    return make_tag( (newrevs, latestrev, index+1) )
+                    # we were not able to tag; the tag must have
+                    # appeared while we are thinking about adding it ourselves
+                    return determine_tag( (newrevs, latestrev) )
                 else:
                     return self.master.addChange(comments = repr(newrevs),
                                                  revision = tag)
@@ -141,5 +164,5 @@ class MultiGit:
             return DeferredList( 
                 [git(rev['gitd'], 'tag', tag, rev['revision']) for rev in
                  latestrev], consumeErrors=True).addCallback(tag_done)
-        return deferred.addCallback(make_tag)
+        return deferred.addCallback(apply_tag)
 
