@@ -99,7 +99,7 @@ def get_metadata_for_revisions(revisions, gitd):
                          revision in revisions])
 
 class MultiGit:
-    def __init__(self, repositories, master, tag_format='tag_%d'):
+    def __init__(self, repositories, master, tag_format='tag%d'):
         self.repositories = repositories
         self.master = master
         self.tag_format = tag_format
