@@ -15,6 +15,7 @@
 
 from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
+from buildbot.changes.multigit import untagged_revisions
 from tempfile import mkdtemp
 
 def add_commit(workd, filename, contents, message):
@@ -52,7 +53,7 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
     def testGetLog(self):
         deferred = self.git('log')
-        def check((o,e)):
+        def check(o):
             self.assertIn('foo', o)
         return deferred.addCallback(check)
     def testCommitDetection(self):
@@ -86,13 +87,13 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
     def testCommitWatcher(self):
         """Test that we see refs/heads/master change,
         and can read back commit messages"""
-        deferred = self.multigit.untagged_revisions()
+        deferred = untagged_revisions(self.workd)
         def check_none_unmatched(unmatched):
             self.assertEquals(unmatched, [])
             return add_commit(self.workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(check_none_unmatched)
-        deferred.addCallback(lambda _: self.multigit.untagged_revisions())
-        deferred.addCallback(lambda unmatched: self.assertEqauls(
+        deferred.addCallback(lambda _: untagged_revisions(self.workd))
+        deferred.addCallback(lambda unmatched: self.assertEquals(
                 len(unmatched),1))
         return deferred
     def testGetTag(self):

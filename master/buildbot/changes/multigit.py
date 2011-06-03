@@ -34,18 +34,21 @@ def run(*kl, **kd):
     return d
 
 def git(gitd, *kl):
-    return run('git', kl, path=gitd)
+    return run('git', kl, path=gitd).addCallback( lambda (o,e):o)
+
+def linesplitdropsplit(text):
+    return [x.split() for x in text.split('\n') if x]
 
 def find_ref(gitd, ref):
     d = git(gitd, 'show-ref', ref)
-    def analyse((out, _)):
+    def analyse(out):
         for line in clean(out).split('\n'):
             return line.split()[0]
     return d.addCallback(analyse)
 
 def get_metadata(gitd, hash):
     d = git(gitd, 'show', '--summary', hash)
-    def decode((outs,_)):
+    def decode(outs):
         out = outs.split('\n')
         author_lines = [x for x in out if x.startswith('Author:')]
         result = {'revision':hash}
@@ -72,6 +75,11 @@ def get_metadata(gitd, hash):
         return result
     return d.addCallback(decode)
 
+def untagged_revisions(gitd):
+    deferred = git(gitd, 'rev-list', 'HEAD', '--not', '--tags')
+    return deferred.addCallback(clean).addCallback(linesplitdropsplit)
+
 class MultiGit:
     def __init__(self, repositories):
         self.repositories = repositories
+        
