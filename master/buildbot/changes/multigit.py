@@ -34,24 +34,28 @@ def run(*kl, **kd):
     return d
 
 def git(gitd, *kl):
+    """Run a git command and return its stdout, throwing away
+    its stderr, but failing with UnexpectedExitCode if it does not exit 
+    cleanly"""
     return run('git', kl, path=gitd).addCallback( lambda (o,e):o)
 
 def linesplitdropsplit(text):
+    """Convert text to a list of non-empty word lists"""
     return [x.split() for x in text.split('\n') if x]
 
 def find_ref(gitd, ref):
+    """Find the revision hash for ref in gitd"""
     d = git(gitd, 'show-ref', ref)
-    def analyse(out):
-        for line in clean(out).split('\n'):
-            return line.split()[0]
-    return d.addCallback(analyse)
+    return d.addCallback(linesplitdropsplit).addCallback(lambda x: x[0][0])
 
-def get_metadata(gitd, hash):
-    d = git(gitd, 'show', '--summary', hash)
+def get_metadata(gitd, revision):
+    """Get a metadata dictionary containg revision, author, email, date, and message
+    for revision"""
+    d = git(gitd, 'show', '--summary', revision)
     def decode(outs):
         out = outs.split('\n')
         author_lines = [x for x in out if x.startswith('Author:')]
-        result = {'revision':hash}
+        result = {'revision':revision}
         if author_lines:
             result['author'] = ' '.join( author_lines[0].split()[1:-1])
             result['email'] = author_lines[0].split()[-1]
@@ -76,6 +80,7 @@ def get_metadata(gitd, hash):
     return d.addCallback(decode)
 
 def untagged_revisions(gitd):
+    """Return the revisions reachable from HEAD but not from tags"""
     deferred = git(gitd, 'rev-list', 'HEAD', '--not', '--tags')
     return deferred.addCallback(clean).addCallback(linesplitdropsplit)
 
