@@ -128,5 +128,6 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         def check2(_):
             self.assertEqual(len(self.changes_added), 1)
             self.failUnless('xyzzy' in self.changes_added[0]['comments'])
+            self.failUnless(self.changes_added[0]['revision'])
         return deferred.addCallback(check2)
         
