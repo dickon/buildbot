@@ -25,16 +25,18 @@ from tempfile import mkdtemp
 def add_commit(workd, filename, contents, message):
     with file(workd+'/'+filename, 'w') as f:
         f.write(contents)
-    d = run('git', ['add', filename], path=workd)
+    d = git(workd, 'add', filename)
     def commit(_):
-        return run('git', ['commit', '-m', message], path=workd)
+        return git(workd, 'commit', '-m', message)
     return d.addCallback(commit)
 
 class PopulatedRepository:
+    def git(self, *l):
+        return git(self.workd, *l)
     def setUp(self):
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
-        d = run('git', ['init'], path=self.workd)
+        d = self.git('init')
         d.addCallback(lambda _: add_commit(self.workd, 'bar', 'spong', 'foo'))
         return d.addCallback(lambda _: git(self.workd, 'tag', 'tag1'))
     def tearDown(self):
@@ -42,7 +44,7 @@ class PopulatedRepository:
 
 class TestGitPoller(PopulatedRepository, unittest.TestCase):
     def testGetLog(self):
-        d = run('git', ['log'], path=self.workd)
+        d = self.git('log')
         def check((o,e)):
             self.assertIn('foo', o)
             return find_ref(self.workd, 'refs/heads/master')
