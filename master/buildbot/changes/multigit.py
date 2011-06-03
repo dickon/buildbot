@@ -95,3 +95,6 @@ class MultiGit:
     def __init__(self, repositories, master):
         self.repositories = repositories
         self.master = master
+    def poll(self):
+        pass
+
