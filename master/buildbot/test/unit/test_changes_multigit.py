@@ -49,6 +49,7 @@ class PopulatedRepository:
         return run('rm', ['-rf', self.workd])
 
 class TestGitPoller(PopulatedRepository, unittest.TestCase):
+    """Test some basic operations"""
     def testGetLog(self):
         d = self.git('log')
         def check((o,e)):
@@ -74,5 +75,7 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
         return d
 
 class TestTag(PopulatedRepository, unittest.TestCase):
+    """Test tag detection"""
     def testGetTag(self):
+        """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
