@@ -115,14 +115,31 @@ class MultiGit:
             revs is a list of (status, rev) objects. We assert all those
             status fields are true and flatten out to a list of rev objects"""
             revseq = []
+            latestrev = []
             for status, reporevs in newrevs:
                 assert status
                 for statusr, rev in reporevs:
                     assert statusr
                     revseq.append(rev)
-            return revseq
+                if reporevs:
+                    latestrev.append( reporevs[0][1])
+            return revseq, latestrev, 1
+
         deferred.addCallback(flatten2)
-        def post_change(newrevs):
-            if newrevs:
-                self.master.addChange(comments = repr(newrevs))
-        return deferred.addCallback(post_change)
+        def make_tag((newrevs, latestrev, index)):
+            if newrevs == []:
+                return
+            
+            tag = self.tag_format % (index,)
+            def tag_done(dlo):
+                if [dlr for dlr in dlo if not dlr[0]]:
+                    return make_tag( (newrevs, latestrev, index+1) )
+                else:
+                    return self.master.addChange(comments = repr(newrevs),
+                                                 revision = tag)
+
+            return DeferredList( 
+                [git(rev['gitd'], 'tag', tag, rev['revision']) for rev in
+                 latestrev], consumeErrors=True).addCallback(tag_done)
+        return deferred.addCallback(make_tag)
+
