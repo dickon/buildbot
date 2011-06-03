@@ -30,7 +30,7 @@ def add_commit(workd, filename, contents, message):
         return run('git', ['commit', '-m', message], path=workd)
     return d.addCallback(commit)
 
-class TestGitPoller(unittest.TestCase):
+class PopulatedRepository:
     def setUp(self):
         self.workd = mkdtemp('.testgit')
         self.multgit = MultiGit([self.workd])
@@ -39,6 +39,8 @@ class TestGitPoller(unittest.TestCase):
         return d
     def tearDown(self):
         return run('rm', ['-rf', self.workd])
+
+class TestGitPoller(PopulatedRepository, unittest.TestCase):
     def testGetLog(self):
         d = run('git', ['log'], path=self.workd)
         def check((o,e)):
