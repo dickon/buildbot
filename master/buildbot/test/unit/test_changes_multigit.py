@@ -70,13 +70,15 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
         deferred.addCallback(verify_metadata)
         def check_new(commit2):
             """Stash away the second commit"""
-            commits.append(commit2)
             return find_ref(self.workd, 'refs/heads/master')
         deferred.addCallback(check_new)
-        def compare_commits(_):
+        deferred.addCallback(lambda rev: get_metadata(self.workd, rev))
+        def compare_commits(commit2):
             """Check the commits are like we expect"""
-            self.assertEqauls(commits[1]['message'], 'xyzzy\n')
+            commits.append(commit2)
+            self.assertEquals(commits[1]['message'], 'xyzzy')
             self.assertNotEqual(commits[0]['revision'], commits[1]['revision'])
+        deferred.addCallback(compare_commits)
         return deferred
     def testGetTag(self):
         """Can we find the known tag"""
