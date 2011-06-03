@@ -104,5 +104,7 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
         """Check that the head of master is less than 10 seconds old"""
         deferred = find_ref(self.workd, 'refs/heads/master').addCallback(
             lambda rev: get_metadata(self.workd, rev))
-        return deferred.addCallback(
-            lambda d: self.failUnless(d['commit_time'] > time()-10))
+        def check_commit_time(metadata):
+            self.failUnless(metadata['commit_time'] > time()-10)
+            self.failUnless(metadata['commit_time'] < time())
+        return deferred.addCallback(check_commit_time)
