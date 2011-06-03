@@ -52,12 +52,12 @@ class PopulatedRepository:
 
 class TestGitFunctions(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
-    def testGetLog(self):
+    def test_get_log(self):
         deferred = self.git('log')
         def check(o):
             self.assertIn('foo', o)
         return deferred.addCallback(check)
-    def testCommitDetection(self):
+    def test_commit_detection(self):
         """Test that we see refs/heads/master change,
         and can read back commit messages"""
         commits = []
@@ -85,7 +85,7 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
             self.assertNotEqual(commits[0]['revision'], commits[1]['revision'])
         deferred.addCallback(compare_commits)
         return deferred
-    def testCommitWatcher(self):
+    def test_commit_watcher(self):
         """Test that we see refs/heads/master change,
         and can read back commit messages"""
         deferred = untagged_revisions(self.workd)
@@ -98,10 +98,10 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
                 len(unmatched),1))
         
         return deferred
-    def testGetTag(self):
+    def test_get_tag(self):
         """Can we find the known tag"""
         return find_ref(self.workd, 'refs/tags/tag1')
-    def testCommitAge(self):
+    def test_commit_age(self):
         """Check that the head of master is less than 10 seconds old"""
         deferred = find_ref(self.workd, 'refs/heads/master').addCallback(
             lambda rev: get_metadata(self.workd, rev))
@@ -118,7 +118,7 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         def create(_):
             self.multigit = MultiGit([self.workd], self.master)
         return deferred.addCallback(create)
-    def testPoll(self):
+    def test_poll(self):
         deferred = self.multigit.poll()
         def check1(_):
             self.assertEqual(len(self.changes_added), 0)
