@@ -40,7 +40,6 @@ class PopulatedRepository:
     def setUp(self):
         """Prepare the test repsotiroy"""
         self.workd = mkdtemp('.testgit')
-        self.multgit = MultiGit([self.workd])
         deferred = self.git('init')
         deferred.addCallback(lambda _: add_commit(self.workd, 'bar', 
                                      'spong', 'foo'))
@@ -50,7 +49,7 @@ class PopulatedRepository:
         """Remove the test repository"""
         return run('rm', ['-rf', self.workd])
 
-class TestGitPoller(PopulatedRepository, unittest.TestCase):
+class TestGitFunctions(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
     def testGetLog(self):
         deferred = self.git('log')
