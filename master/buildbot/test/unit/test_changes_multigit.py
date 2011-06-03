@@ -52,11 +52,14 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
     def testGetLog(self):
         deferred = self.git('log')
-        commits = []
         def check((o,e)):
             self.assertIn('foo', o)
-            return find_ref(self.workd, 'refs/heads/master')
-        deferred.addCallback(check)
+        return deferred.addCallback(check)
+    def testCommitDetection(self):
+        """Test that we see refs/heads/master change,
+        and can read back commit messages"""
+        commits = []
+        deferred = find_ref(self.workd, 'refs/heads/master')
         def check_ref(hash):
             """Check the hash is the length we expect"""
             self.assertEquals(len(hash), 40)
