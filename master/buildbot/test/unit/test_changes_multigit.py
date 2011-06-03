@@ -14,13 +14,8 @@
 # Copyright Buildbot Team Members
 
 from twisted.trial import unittest
-from twisted.internet import defer
-from exceptions import Exception
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
-from buildbot.test.util import changesource, gpo
-from buildbot.util import epoch2datetime
 from tempfile import mkdtemp
-
 
 def add_commit(workd, filename, contents, message):
     with file(workd+'/'+filename, 'w') as f:
