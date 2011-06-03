@@ -15,7 +15,7 @@
 
 
 from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
-from time import strptime, mktime
+from time import strptime, mktime, localtime
 class UnexpectedExitCode(Exception):
     pass
 
@@ -62,10 +62,13 @@ def get_metadata(gitd, revision):
         date_lines = [x for x in out if x.startswith('Date:')]
         if date_lines:
             result['date'] = ' '.join(date_lines[0].split()[1:])
-            tz = result['date'][-4:]
+            hours = int(result['date'][-4:-2])
+            minutes = int(result['date'][-2:])
+            magn = 3600 * hours + 60 * minutes
             sign = result['date'][-5]
-            result['commit_time'] = mktime(strptime(result['date'][:-6], '%a %b %d %H:%M:%S %Y'))
-            print sign, tz, result
+            tzoffset = -magn if sign == '+' else magn
+            ttup = strptime(result['date'][:-6], '%a %b %d %H:%M:%S %Y')
+            result['commit_time'] = mktime(tuple(list(ttup[:8])+[0]))+tzoffset
         i = 0
         while i < len(out) and out[i]:
             i += 1
