@@ -96,6 +96,7 @@ class TestGitPoller(PopulatedRepository, unittest.TestCase):
         deferred.addCallback(lambda _: untagged_revisions(self.workd))
         deferred.addCallback(lambda unmatched: self.assertEquals(
                 len(unmatched),1))
+        
         return deferred
     def testGetTag(self):
         """Can we find the known tag"""

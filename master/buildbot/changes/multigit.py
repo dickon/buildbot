@@ -87,8 +87,8 @@ def get_metadata(gitd, revision):
     return d.addCallback(decode)
 
 def untagged_revisions(gitd):
-    """Return the revisions reachable from HEAD but not from tags"""
-    deferred = git(gitd, 'rev-list', 'HEAD', '--not', '--tags')
+    """Return the revisions reachable from branches but not from tags"""
+    deferred = git(gitd, 'rev-list', '--branches', '--not', '--tags')
     return deferred.addCallback(clean).addCallback(linesplitdropsplit)
 
 class MultiGit:
