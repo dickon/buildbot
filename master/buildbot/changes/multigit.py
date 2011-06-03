@@ -91,7 +91,7 @@ def get_metadata(gitd, revision):
 def untagged_revisions(gitd):
     """Return the revisions reachable from branches but not from tags"""
     deferred = git(gitd, 'rev-list', '--branches', '--not', '--tags')
-    return deferred.addCallback(clean).addCallback(linesplitdropsplit)
+    return deferred.addCallback(linesplitdropsplit)
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
