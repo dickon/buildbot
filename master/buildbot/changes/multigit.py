@@ -16,6 +16,8 @@
 
 from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
 from time import strptime, mktime, localtime
+from twisted.internet.defer import succeed, DeferredList
+
 class UnexpectedExitCode(Exception):
     pass
 
@@ -55,7 +57,7 @@ def get_metadata(gitd, revision):
     def decode(outs):
         out = outs.split('\n')
         author_lines = [x for x in out if x.startswith('Author:')]
-        result = {'revision':revision}
+        result = {'revision':revision, 'gitd':gitd}
         if author_lines:
             result['author'] = ' '.join( author_lines[0].split()[1:-1])
             result['email'] = author_lines[0].split()[-1]
@@ -91,10 +93,35 @@ def untagged_revisions(gitd):
     deferred = git(gitd, 'rev-list', '--branches', '--not', '--tags')
     return deferred.addCallback(clean).addCallback(linesplitdropsplit)
 
+def get_metadata_for_revisions(revisions, gitd):
+    """Convert list of revisions to list of revision descriptions"""
+    return DeferredList([get_metadata(gitd, revision[0]) for 
+                         revision in revisions])
+
 class MultiGit:
     def __init__(self, repositories, master):
         self.repositories = repositories
         self.master = master
     def poll(self):
-        pass
-
+        defl = []
+        for repository in self.repositories:
+            subd = untagged_revisions(repository)
+            subd.addCallback(get_metadata_for_revisions, repository)
+            defl.append(subd)
+        deferred = DeferredList(defl)
+        def flatten2(newrevs):
+            """newrevs is a list of (status, revs) where
+            revs is a list of (status, rev) objects. We assert all those
+            status fields are true and flatten out to a list of rev objects"""
+            revseq = []
+            for status, reporevs in newrevs:
+                assert status
+                for statusr, rev in reporevs:
+                    assert statusr
+                    revseq.append(rev)
+            return revseq
+        deferred.addCallback(flatten2)
+        def post_change(newrevs):
+            if newrevs:
+                self.master.addChange(comments = repr(newrevs))
+        return deferred.addCallback(post_change)
