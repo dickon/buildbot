@@ -22,7 +22,7 @@ class ChangeSourceMixin(object):
 
      - starting and stopping a ChangeSource service
      - a fake C{self.master.addChange}, which adds its args
-       to the list C{self.chagnes_added}
+       to the list C{self.changes_added}
     """
 
     changesource = None
