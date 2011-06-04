@@ -129,6 +129,12 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         def create(_):
             self.multigit = MultiGit([self.workd], self.master)
         return deferred.addCallback(create)
+    def tearDown(self):
+        deferred = PopulatedRepository.tearDown(self)
+        def detach(_):
+            del self.multigit
+        deferred.addCallback(detach)
+        return deferred.addCallback(lambda _: self.tearDownChangeSource())
     def test_poll_nothing_untagged(self):
         deferred = self.multigit.poll()
         def check1(_):
