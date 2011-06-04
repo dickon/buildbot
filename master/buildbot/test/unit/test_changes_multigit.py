@@ -138,8 +138,16 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
         self.multigit.age_requirement = 600
         deferred.addCallback(lambda _: self.multigit.poll())
-        def check2(_):
+        def check(_):
             self.assertEqual(len(self.changes_added), 0)
-        return deferred.addCallback(check2)
+        return deferred.addCallback(check)
+    def test_poll_multi_branches(self):
+        deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred.addCallback(self.workd, 'd', 'e', 'erer', branch='branch2')
+        self.multigit.age_requirement = 0
+        deferred.addCallback(lambda _: self.multigit.poll())
+        def check(_):
+            self.assertEqual(len(self.changes_added), 2)
+        return deferred.addCallback(check)
         
     
