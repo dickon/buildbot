@@ -133,4 +133,11 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
             self.failUnless('xyzzy' in self.changes_added[0]['comments'])
             self.assertEqual('tag2', self.changes_added[0]['revision'])
         return deferred.addCallback(check2)
+    def test_poll_one_recent_commit(self):
+        deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred.addCallback(lambda _: self.multigit.poll(age_requirement=600))
+        def check2(_):
+            self.assertEqual(len(self.changes_added), 0)
+        return deferred.addCallback(check2)
         
+    
