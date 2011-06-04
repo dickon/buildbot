@@ -216,10 +216,7 @@ class MultiGit:
             return DeferredList(defl, consumeErrors=True)
         deferred.addCallback(determine_tag)
         def check(dlo):
-            print 'check:'
-            print dlo
             for status, stuff in dlo:
-                print 'traceback:'
                 stuff.printTraceback(stdout)
         return deferred.addCallback(check)
 
@@ -228,7 +225,6 @@ class MultiGit:
         deferred = self.find_fresh_tag(branch)
         def set_tag(tag):
             """Apply tag to all of latestrev"""
-            print 'applying',tag,'to',latestrev
             return DeferredList( 
                 [git(rev['gitd'], 'tag', tag, rev['revision']) for rev in
                  latestrev], consumeErrors=True).addCallback(
@@ -240,11 +236,8 @@ class MultiGit:
             allgood = True
             for status, outcome in dlo:
                 if not status:
-                    print 'WARNING: error applying',tag
                     outcome.printTraceback(stdout)
                     allgood = False
-            print 'allgood=%r doing tag=%s' % (allgood, tag)
-            print 'branchrevs=%r' % (branchrevs)
             if allgood:
                 return self.master.addChange(comments = repr(branchrevs),
                                              revision = tag)
