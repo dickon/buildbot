@@ -226,10 +226,11 @@ class MultiGit:
         deferred = self.find_fresh_tag(branch)
         def set_tag(tag):
             """Apply tag to all of latestrev"""
-            return DeferredList( 
-                [git(rev['gitd'], 'tag', tag, rev['revision']) for rev in
-                 latestrev], consumeErrors=True).addCallback(
-                lambda dlo: (dlo, tag))
+            defl = [git(rev['gitd'], 'tag', tag, 
+                        rev['revision']) for rev in latestrev]
+            if defl:
+                return DeferredList( defl, consumeErrors=True).addCallback(
+                    lambda dlo: (dlo, tag))
         deferred.addCallback(set_tag)
         def tag_done((dlo, tag)):
             """Tagging complete or failed; retry if necessary"""
