@@ -116,6 +116,10 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
             self.failUnless(metadata['commit_time'] > time()-10)
             self.failUnless(metadata['commit_time'] < time())
         return deferred.addCallback(check_commit_time)
+    def test_untagged(self):
+        """Check that the untagged revisions are empty"""
+        deferred = untagged_revisions(self.workd)
+        return deferred.addCallback(lambda seq: self.assertEquals(seq, []))
 
 class TestMultiGit(PopulatedRepository, unittest.TestCase,
                    changesource.ChangeSourceMixin):
