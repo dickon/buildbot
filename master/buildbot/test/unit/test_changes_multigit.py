@@ -15,17 +15,25 @@
 
 from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
-from buildbot.changes.multigit import untagged_revisions
+from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit
 from buildbot.test.util import changesource
 from tempfile import mkdtemp
 from time import time
 
-def add_commit(workd, filename, contents, message):
+def add_commit(workd, filename, contents, message, branch='master'):
     """Add a commit to workd which sets filename to contain
-    contents with commit message"""
-    with file(workd+'/'+filename, 'w') as fobj:
-        fobj.write(contents)
-    deferred = git(workd, 'add', filename)
+    contents with commit message on branch"""
+    deferred = git(workd, 'branch').addCallback(linesplitdropsplit)
+    def consider_branch_list(branches):
+        if ([br for br in branches if br[1] == branch] == [] and 
+            branch != 'master'):
+            return git(workd, 'checkout', '-b', branch)
+    deferred.addCallback(consider_branch_list)
+    def write(_):
+        with file(workd+'/'+filename, 'w') as fobj:
+            fobj.write(contents)
+    deferred.addCallback(write)
+    deferred.addCallback(lambda _: git(workd, 'add', filename))
     def commit(_):
         """Perform the commit"""
         return git(workd, 'commit', '-m', message)
@@ -44,8 +52,7 @@ class PopulatedRepository:
         deferred = self.git('init')
         deferred.addCallback(lambda _: add_commit(self.workd, 'bar', 
                                      'spong', 'foo'))
-        deferred.addCallback(lambda _: git(self.workd, 'tag', 'tag1'))
-        return deferred
+        return deferred.addCallback(lambda _: git(self.workd, 'tag', 'master-1'))
     def tearDown(self):
         """Remove the test repository"""
         return run('rm', ['-rf', self.workd])
@@ -100,7 +107,7 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
         return deferred
     def test_get_tag(self):
         """Can we find the known tag"""
-        return find_ref(self.workd, 'refs/tags/tag1')
+        return find_ref(self.workd, 'refs/tags/master-1')
     def test_commit_age(self):
         """Check that the head of master is less than 10 seconds old"""
         deferred = find_ref(self.workd, 'refs/heads/master').addCallback(
@@ -132,7 +139,7 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         def check2(_):
             self.assertEqual(len(self.changes_added), 1)
             self.failUnless('xyzzy' in self.changes_added[0]['comments'])
-            self.assertEqual('tag2', self.changes_added[0]['revision'])
+            self.assertEqual('master-2', self.changes_added[0]['revision'])
         return deferred.addCallback(check2)
     def test_poll_one_recent_commit(self):
         deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
@@ -143,7 +150,8 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
         return deferred.addCallback(check)
     def test_poll_multi_branches(self):
         deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
-        deferred.addCallback(self.workd, 'd', 'e', 'erer', branch='branch2')
+        deferred.addCallback(lambda _:
+                                 add_commit(self.workd, 'd', 'e', 'erer', branch='branch2'))
         self.multigit.age_requirement = 0
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
