@@ -17,6 +17,7 @@
 from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
 from time import strptime, mktime, localtime
 from twisted.internet.defer import succeed, DeferredList
+from time import time
 
 class UnexpectedExitCode(Exception):
     pass
@@ -120,7 +121,7 @@ class MultiGit:
         self.repositories = repositories
         self.master = master
         self.tag_format = tag_format
-    def poll(self):
+    def poll(self, age_requirement=0):
         defl = []
         for repository in self.repositories:
             subd = untagged_revisions(repository)
@@ -144,7 +145,9 @@ class MultiGit:
 
         deferred.addCallback(flatten2)
         def determine_tag((newrevs, latestrev)):
-            if newrevs == []:
+            latest = time() - age_requirement
+            oldrevs = [rev for rev in newrevs if rev['commit_time'] <= latest]
+            if oldrevs == []:
                 return (None, newrevs, latestrev)
             subd = find_fresh_tag(self.repositories, self.tag_format)
             return subd.addCallback( lambda tag: (tag, newrevs, latestrev))
