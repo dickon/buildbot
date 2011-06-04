@@ -176,6 +176,7 @@ class MultiGit:
                 return
             def tag_done(dlo):
                 """Tagging complete or failed; retry if necessary"""
+                self.tag_starting_index += 1
                 if [dlr for dlr in dlo if not dlr[0]]:
                     # we were not able to tag; the tag must have
                     # appeared while we are thinking about adding it ourselves
