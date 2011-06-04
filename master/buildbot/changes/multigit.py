@@ -109,9 +109,10 @@ def find_fresh_tag(gitds, tag_format, index=1):
     """Find a fresh tag across all gitds based on tag_format
     interpolate with an integer index"""
     tag = tag_format % (index,)
-    deferred = DeferredList([find_ref(gitd, 'refs/tags/'+tag) for gitd in gitds],
-                            consumeErrors=True)
+    deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in gitds]
+    deferred = DeferredList(deferreds, consumeErrors=True)
     def check(dlo):
+        """Check that all tag lookups failed, or try a higher tag number"""
         all_fresh = True
         for found, _ in dlo:
             if found:
