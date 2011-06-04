@@ -14,12 +14,12 @@
 # Copyright Buildbot Team Members
 
 
-from twisted.internet.utils import getProcessOutput, getProcessOutputAndValue
-from time import strptime, mktime, localtime
-from twisted.internet.defer import succeed, DeferredList
-from time import time
+from twisted.internet.utils import getProcessOutputAndValue
+from time import strptime, mktime, time
+from twisted.internet.defer import DeferredList
 
 class UnexpectedExitCode(Exception):
+    """A subprocess exited with an unexpected exit code"""
     pass
 
 def clean(text):
@@ -27,14 +27,18 @@ def clean(text):
     return ' '.join(text.split())
 
 def run(*kl, **kd):
+    """Run shell command and return a deferred, which will errback
+    with UnexpectedExitCode if the exit code is not expected_return_code
+    (which defualts to 0)"""
     expected_return_code = kd.pop('expected_return_code', 0)
-    d = getProcessOutputAndValue(*kl, **kd)
-    def check((o,e,ec)):
-        if ec != expected_return_code:
-            raise UnexpectedExitCode(kl, kd, o, e, ec, expected_return_code)
-        return (o,e)
-    d.addCallback(check)
-    return d
+    deferred = getProcessOutputAndValue(*kl, **kd)
+    def check((out, err, exitcode)):
+        """Verify exit code"""
+        if exitcode != expected_return_code:
+            raise UnexpectedExitCode(kl, kd, out, err, exitcode, 
+                                     expected_return_code)
+        return (out, err)
+    return deferred.addCallback(check)
 
 def git(gitd, *kl):
     """Run a git command and return its stdout, throwing away
