@@ -221,7 +221,8 @@ class MultiGit:
         return deferred.addCallback(check)
 
     def apply_tag(self, branch, latestrev, branchrevs):
-        """Tag all latestrev revisions with tag """
+        """Tag all latestrev revisions with tag,
+        including branchrevs in comments"""
         deferred = self.find_fresh_tag(branch)
         def set_tag(tag):
             """Apply tag to all of latestrev"""
