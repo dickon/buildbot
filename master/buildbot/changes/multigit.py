@@ -105,33 +105,37 @@ def get_metadata_for_revisions(revisions, gitd):
     return DeferredList([get_metadata(gitd, revision[0]) for 
                          revision in revisions])
 
-def find_fresh_tag(gitds, tag_format, index=1):
-    """Find a fresh tag across all gitds based on tag_format
-    interpolate with an integer index"""
-    tag = tag_format % (index,)
-    deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in gitds]
-    deferred = DeferredList(deferreds, consumeErrors=True)
-    def check(dlo):
-        """Check that all tag lookups failed, or try a higher tag number"""
-        all_fresh = True
-        for found, _ in dlo:
-            if found:
-                all_fresh = False # this repository has the tag
-        if all_fresh:
-            return tag
-        else:
-            return find_fresh_tag(gitds, tag_format, index +1)
-    return deferred.addCallback(check)
 
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
     in some."""
     def __init__(self, repositories, master, tag_format='tag%d',
-                 age_requirement=0):
+                 age_requirement=0, tag_starting_index = 1):
         self.repositories = repositories
         self.master = master
-        self.tag_format = tag_format
         self.age_requirement = 0
+        self.tag_starting_index = tag_starting_index
+        self.tag_format = tag_format
+
+    def find_fresh_tag(self):
+        """Find a fresh tag across all repositories based on self.tag_format"""
+        tag = self.tag_format % (self.tag_starting_index,)
+        deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
+                     self.repositories]
+        deferred = DeferredList(deferreds, consumeErrors=True)
+        def check(dlo):
+            """Check that all tag lookups failed, or try a higher tag number"""
+            all_fresh = True
+            for found, _ in dlo:
+                if found:
+                    all_fresh = False # this repository has the tag
+            if all_fresh:
+                return tag
+            else:
+                self.tag_starting_index += 1
+                return self.find_fresh_tag()
+        return deferred.addCallback(check)
+
     def poll(self):
         """Look for untagged revisions at least age_requirement seconds old, 
         and tag and record them."""
@@ -163,8 +167,8 @@ class MultiGit:
             oldrevs = [rev for rev in newrevs if rev['commit_time'] <= latest]
             if oldrevs == []:
                 return (None, newrevs, latestrev)
-            subd = find_fresh_tag(self.repositories, self.tag_format)
-            return subd.addCallback( lambda tag: (tag, newrevs, latestrev))
+            return self.find_fresh_tag().addCallback(
+                lambda tag: (tag, newrevs, latestrev))
         deferred.addCallback(determine_tag)
         def apply_tag((tag, newrevs, latestrev)):
             """Tag all repositories"""
