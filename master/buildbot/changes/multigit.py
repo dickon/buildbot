@@ -217,7 +217,8 @@ class MultiGit:
         deferred.addCallback(determine_tag)
         def check(dlo):
             for status, stuff in dlo:
-                stuff.printTraceback(stdout)
+                if not status:
+                    stuff.printTraceback(stdout)
         return deferred.addCallback(check)
 
     def apply_tag(self, branch, latestrev, branchrevs):
