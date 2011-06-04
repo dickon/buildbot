@@ -124,11 +124,15 @@ def find_fresh_tag(gitds, tag_format, index=1):
     return deferred.addCallback(check)
 
 class MultiGit:
+    """Track multiple repositories, tagging when new revisions appear
+    in some."""
     def __init__(self, repositories, master, tag_format='tag%d'):
         self.repositories = repositories
         self.master = master
         self.tag_format = tag_format
     def poll(self, age_requirement=0):
+        """Look for untagged revisions at least age_requirement seconds old, 
+        and tag and record them."""
         defl = []
         for repository in self.repositories:
             subd = untagged_revisions(repository)
@@ -152,6 +156,7 @@ class MultiGit:
 
         deferred.addCallback(flatten2)
         def determine_tag((newrevs, latestrev)):
+            """Figure out if a tag is warranted"""
             latest = time() - age_requirement
             oldrevs = [rev for rev in newrevs if rev['commit_time'] <= latest]
             if oldrevs == []:
@@ -160,9 +165,11 @@ class MultiGit:
             return subd.addCallback( lambda tag: (tag, newrevs, latestrev))
         deferred.addCallback(determine_tag)
         def apply_tag((tag, newrevs, latestrev)):
+            """Tag all repositories"""
             if tag is None:
                 return
             def tag_done(dlo):
+                """Tagging complete or failed; retry if necessary"""
                 if [dlr for dlr in dlo if not dlr[0]]:
                     # we were not able to tag; the tag must have
                     # appeared while we are thinking about adding it ourselves
