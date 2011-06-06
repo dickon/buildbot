@@ -12,7 +12,8 @@
 # Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # Copyright Buildbot Team Members
-
+"""A git change source which creates tags on branches across multiple
+repositories and passes tags up as the revisions we tag."""
 
 from twisted.internet.utils import getProcessOutputAndValue
 from time import strptime, mktime, time
@@ -78,6 +79,7 @@ def find_ref(gitd, ref):
     deferred.addCallback(linesplitdropsplit)
     deferred.addCallback(lambda x: x[0][0])
     def handle_failure(failure):
+        """Use None for the particular failure we get for missing tags"""
         failure.trap(UnexpectedExitCode)
         if failure.value.exit_code == 1 and failure.value.out == '':
             return
@@ -198,6 +200,7 @@ class MultiGit:
         and tag and record them."""
         deferred = get_branch_list(self.repositories)
         def look_for_untagged(repobranchlist):
+            """Find untagged revisions"""
             defl2 = []
             for repository, branch in repobranchlist:
                 subd = untagged_revisions(repository, branch)
@@ -248,6 +251,7 @@ class MultiGit:
             return subd.addCallback(tag_done)
         deferred.addCallback(set_tag)
         def again(failure):
+            """tag again on failure"""
             print 'WARNING: failed to set tag, will try again'
             failure.printTraceback(stdout)
             return self.apply_tag( branch, latestrev, branchrevs)
