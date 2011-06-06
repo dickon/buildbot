@@ -270,6 +270,6 @@ class MultiGit:
                 print 'so will try again with higher tag number'
                 failure.printTraceback(stdout)
                 return self.create_tag(branch)
-            return subd
+            return subd.addErrback(again)
         return deferred.addCallback(set_tag)
         
