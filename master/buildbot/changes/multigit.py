@@ -171,6 +171,26 @@ def check_list(deferred_list_output):
     return out
 
 
+def describe_tag(tag_format, format_data, index, repositories, offset=-1):
+    """Return a string describing changes between tag with index and
+    format data and the previous tag on this branch, across repositories"""
+    tag = tag_format % dict(format_data, index=index)
+    prev = tag_format % dict(format_data, index=index+offset)
+    deferred = failing_deferred_list(
+        [git(gitd, 'log', prev+'..'+tag) for gitd in repositories])
+    def annotate(textlist):
+        return 'Differences between %s and %s:\n%s' % (
+            prev, tag, reduce(list.__add__, textlist))
+    deferred.addCallback(annotate)
+    def again(failure):
+        failure.trap(UnexpectedExitCode)
+        if (failure.value.exit_code != 128 or 
+            'unknown revision' not in failure.value.err):
+            return failure
+        if offset > -10000 and index + offset > 0:
+            return describe_tag(tag_format, format_data, index, repositories, offset-1)
+    return deferred.addErrback( again)
+
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -234,17 +254,14 @@ class MultiGit:
             defl = [git(gitd, 'tag', tag, branch) for gitd in self.repositories]
             subd = failing_deferred_list(defl)
             # we nest our callbacks so that tag stays in scope
-            prevtag = self.tag_format % ({'branch':branch, 'index':tag_index-1})
-            def give_up(failure):
-                print 'WARNING: unable to get difference between', prevtag, 'and', tag
-                return {}
             def tag_done(_):
                 """Tagging complete"""
-                return failing_deferred_list(
-                    [git(gitd, 'log', '-v', prevtag+'..'+tag)]).addCallback(
-                    lambda seq: {'comments':reduce(list.__add__, seq)}).addErrback(give_up)
+                return describe_tag(self.tag_format, {'branch':branch}, tag_index, 
+                                    self.repositories)
             subd.addCallback(tag_done)
-            def store_change(extras):
+            def store_change(description):
+                """Declare change to upstream"""
+                extras = {} if description is None else {'comments':description}
                 return self.master.addChange(revision = tag, **extras)
             subd.addCallback(store_change)
             def again(failure):
