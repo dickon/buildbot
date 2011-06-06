@@ -130,7 +130,22 @@ def get_branch_list(repositories):
         return out
     return deferred.addCallback(flatten)
 
-
+def check_list(deferred_list_output):
+    """Remove the status fields from a deferred_list_output, 
+    raising the first error if there is one"""
+    bad = None
+    out = []
+    for status, value in deferred_list_output:
+        if not status:
+            value.printTraceback()
+            if bad is None:
+                bad = value
+        else:
+            out.append(value)
+    if bad:
+        bad.raiseException()
+    return out
+        
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -180,26 +195,24 @@ class MultiGit:
                     return out
                 subd.addCallback(annotate_branch, branch)
                 defl2.append(subd)
-            return DeferredList(defl2, consumeErrors=True)
+            defl = DeferredList(defl2, consumeErrors=True)
+            return defl.addCallback(check_list)
         deferred.addCallback(look_for_untagged)
         def flatten2(newrevs):
-            """newrevs is a list of (status, revs) where
+            """newrevs is a list of revs where
             We assert all those
             status fields are true and flatten out to a list of rev objects"""
             revseq = []
             latestrevs = []
             branches = set()
-            for status, reporevs in newrevs:
-                if not status:
-                    reporevs.printTraceback()
-                else:
-                    revseq += reporevs
-                    seen = set()
-                    for rev in reporevs:
-                        if rev['branch'] not in seen:
-                            seen.add(rev['branch'])
-                            latestrevs.append(rev)
-                            branches.add(rev['branch'])
+            for reporevs in newrevs:
+                revseq += reporevs
+                seen = set()
+                for rev in reporevs:
+                    if rev['branch'] not in seen:
+                        seen.add(rev['branch'])
+                        latestrevs.append(rev)
+                        branches.add(rev['branch'])
             return revseq, latestrevs, branches
 
         deferred.addCallback(flatten2)
