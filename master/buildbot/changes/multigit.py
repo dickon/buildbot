@@ -66,10 +66,14 @@ def linesplitdropsplit(text):
     return [x.split() for x in text.split('\n') if x]
 
 def find_ref(gitd, ref):
-    """Find the revision hash for ref in gitd"""
+    """Find the revision hash for ref in gitd, or None if not found"""
     deferred = git(gitd, 'show-ref', ref)
     deferred.addCallback(linesplitdropsplit)
-    return deferred.addCallback(lambda x: x[0][0])
+    deferred.addCallback(lambda x: x[0][0])
+    def handle_failure(failure):
+        return failure
+    return deferred.addErrback(handle_failure)
+    
 
 def get_metadata(gitd, revision):
     """Get a metadata dictionary containg revision, author, email,
