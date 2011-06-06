@@ -136,6 +136,13 @@ def get_branch_list(repositories):
         return out
     return deferred.addCallback(flatten)
 
+def annotate_list(sequence, **assignments):
+    """Take sequence, a list of dictionaries, and return
+    a new list of dictionaries with keyword parameters adding 
+    or replacing items in the dictionary"""
+    return [dict(item, **assignments) for item in sequence]
+
+
 def check_list(deferred_list_output):
     """Remove the status fields from a deferred_list_output, 
     raising the first error if there is one"""
@@ -193,9 +200,7 @@ class MultiGit:
             for repository, branch in repobranchlist:
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
-                def annotate_branch(metadata, branch):
-                    return [dict(item, branch=branch) for item in metadata]
-                subd.addCallback(annotate_branch, branch)
+                subd.addCallback(annotate_list, branch=branch)
                 defl2.append(subd)
             return failing_deferred_list(defl2)
         deferred.addCallback(look_for_untagged)
