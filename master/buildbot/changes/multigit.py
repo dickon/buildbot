@@ -22,7 +22,14 @@ from sys import stdout
 
 class UnexpectedExitCode(Exception):
     """A subprocess exited with an unexpected exit code"""
-    pass
+    def __init__(self, args_list, args_dict, out, err, exit_code,
+                 expected_return_code):
+        self.args_list = args_list
+        self.args_dict = args_dict
+        self.out = out
+        self.err = err
+        self.exit_code = exit_code
+        self.expected_return_code = expected_return_code
 
 def clean(text):
     """Convert all whitespace in to simple spaces"""
