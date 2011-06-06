@@ -206,36 +206,30 @@ class MultiGit:
                 defl2.append(subd)
             return failing_deferred_list(defl2)
         deferred.addCallback(look_for_untagged)
-        def flatten2(newrevs):
-            """newrevs is a list of revs where
-            We assert all those
-            status fields are true and flatten out to a list of rev objects"""
-            revseq = []
-            latestrevs = []
-            branches = set()
-            for reporevs in newrevs:
-                revseq += reporevs
-                seen = set()
-                for rev in reporevs:
-                    if rev['branch'] not in seen:
-                        seen.add(rev['branch'])
-                        latestrevs.append(rev)
-                        branches.add(rev['branch'])
-            return revseq, latestrevs, branches
-
-        deferred.addCallback(flatten2)
-        def determine_tag((newrevs, latestrev, branches)):
+        def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
+            newrevs = reduce( list.__add__, newrevs)
+            latestrev = []
+            branches = set()
+            seen = set()
+            for rev in newrevs:
+                if rev['branch'] not in seen:
+                    seen.add(rev['branch'])
+                    latestrev.append(rev)
+                    branches.add(rev['branch'])
             latest = time() - self.age_requirement
             defl = []
             for branch in branches:
                 branchrevs = [rev for rev in newrevs if rev['branch'] == branch]
-                oldrevs = [rev for rev in branchrevs if rev['commit_time'] <= latest]
-                branchlatestrev = [rev for rev in latestrev if rev['branch'] == branch]
+                oldrevs = [rev for rev in branchrevs if 
+                           rev['commit_time'] <= latest]
+                branchlatestrev = [rev for rev in latestrev if 
+                                   rev['branch'] == branch]
                 if oldrevs:
-                    defl.append(  self.apply_tag(branch, branchlatestrev, branchrevs))
+                    defl.append(  self.apply_tag(branch, 
+                                                 branchlatestrev, branchrevs))
             return failing_deferred_list(defl)
-        return deferred.addCallback(determine_tag)
+        return deferred.addCallback(determine_tags)
 
     def apply_tag(self, branch, latestrev, branchrevs):
         """Tag all latestrev revisions with tag,
