@@ -49,6 +49,12 @@ def failing_deferred_list(list_of_deferreds):
     defl = DeferredList(list_of_deferreds, consumeErrors=True)
     return defl.addCallback(check_list)
 
+def annotate_list(sequence, **assignments):
+    """Take sequence, a list of dictionaries, and return
+    a new list of dictionaries with keyword parameters adding 
+    or replacing items in the dictionary"""
+    return [dict(item, **assignments) for item in sequence]
+
 def git(gitd, *kl):
     """Run a git command and return its stdout, throwing away
     its stderr, but failing with UnexpectedExitCode if it does not exit 
@@ -127,13 +133,6 @@ def get_branch_list(repositories):
         defl.append(subd)
     deferred = failing_deferred_list(defl)
     return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist))
-
-def annotate_list(sequence, **assignments):
-    """Take sequence, a list of dictionaries, and return
-    a new list of dictionaries with keyword parameters adding 
-    or replacing items in the dictionary"""
-    return [dict(item, **assignments) for item in sequence]
-
 
 def check_list(deferred_list_output):
     """Remove the status fields from a deferred_list_output, 
