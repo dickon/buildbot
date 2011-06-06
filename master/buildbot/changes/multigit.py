@@ -31,6 +31,10 @@ class UnexpectedExitCode(Exception):
         self.err = err
         self.exit_code = exit_code
         self.expected_return_code = expected_return_code
+    def __str__(self):
+        return 'UnexpectedExcitCode(%r, %r, %r, %r, %r, %d) ' % (
+            self.args_list, self.args_dict, self.out, self.err,
+            self.exit_code, self.expected_return_code)
 
 def clean(text):
     """Convert all whitespace in to simple spaces"""
@@ -182,6 +186,7 @@ class MultiGit:
         """Find a fresh tag across all repositories based on self.tag_format"""
         tag = self.tag_format % ( {'branch': branch,
                                    'index': self.tag_starting_index})
+        tag_index = self.tag_starting_index
         deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
                      self.repositories]
         deferred = failing_deferred_list(deferreds)
@@ -189,10 +194,10 @@ class MultiGit:
             """Check that tag did not exist in all repositories,
             or try a higher tag number"""
             if hashes == [None]*len(self.repositories):
-                return tag
+                return tag, tag_index
             else:
-                self.tag_starting_index += 1
                 return self.find_fresh_tag(branch)
+        self.tag_starting_index += 1
         return deferred.addCallback(check)
 
     def poll(self):
@@ -211,48 +216,43 @@ class MultiGit:
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
-            newrevs = reduce( list.__add__, newrevs)
-            latestrev = {}
-            branches = set()
-            seen = set()
-            for rev in newrevs:
-                if rev['branch'] not in seen:
-                    seen.add(rev['branch'])
-                branches.add(rev['branch'])
-                latestrev.setdefault(rev['branch'], dict())
-                if rev['gitd'] not in latestrev[rev['branch']]:
-                    latestrev[rev['branch']][rev['gitd']] = rev
             latest = time() - self.age_requirement
-            defl = []
-            for branch in branches:
-                branchrevs = [rev for rev in newrevs if rev['branch'] == branch]
-                oldrevs = [r for r in branchrevs if r['commit_time'] <= latest]
-                if oldrevs:
-                    lrevs = latestrev.get('branch', {}).values()
-                    defl.append(self.apply_tag(branch, lrevs, branchrevs))
+            branches = set()
+            for rev in reduce( list.__add__, newrevs):
+                if rev['commit_time'] <= latest:
+                    branches.add(rev['branch'])
+            defl = [self.create_tag(branch) for branch in branches]
             return failing_deferred_list(defl)
         return deferred.addCallback(determine_tags)
 
-    def apply_tag(self, branch, latestrev, branchrevs):
-        """Tag all latestrev revisions with tag,
-        including branchrevs in comments"""
+    def create_tag(self, branch):
+        """Create tag on branch"""
         deferred = self.find_fresh_tag(branch)
-        def set_tag(tag):
+        def set_tag((tag, tag_index)):
             """Apply tag to all of latestrev"""
-            self.tag_starting_index += 1
-            defl = [git(rev['gitd'], 'tag', tag, 
-                        rev['revision']) for rev in latestrev]
+            assert str(tag_index) in tag
+            defl = [git(gitd, 'tag', tag, branch) for gitd in self.repositories]
             subd = failing_deferred_list(defl)
+            # we nest our callbacks so that tag stays in scope
+            prevtag = self.tag_format % ({'branch':branch, 'index':tag_index-1})
+            def give_up(failure):
+                print 'WARNING: unable to get difference between', prevtag, 'and', tag
+                return {}
             def tag_done(_):
                 """Tagging complete"""
-                return self.master.addChange(comments = repr(branchrevs),
-                                             revision = tag)
-            return subd.addCallback(tag_done)
-        deferred.addCallback(set_tag)
-        def again(failure):
-            """tag again on failure"""
-            print 'WARNING: failed to set tag, will try again'
-            failure.printTraceback(stdout)
-            return self.apply_tag( branch, latestrev, branchrevs)
-        return deferred.addErrback(again)
+                return failing_deferred_list(
+                    [git(gitd, 'log', '-v', prevtag+'..'+tag)]).addCallback(
+                    lambda seq: {'comments':reduce(list.__add__, seq)}).addErrback(give_up)
+            subd.addCallback(tag_done)
+            def store_change(extras):
+                return self.master.addChange(revision = tag, **extras)
+            subd.addCallback(store_change)
+            def again(failure):
+                """tag again on failure"""
+                print 'WARNING: failed to set tag', tag,
+                print 'so will try again with higher tag number'
+                failure.printTraceback(stdout)
+                return self.create_tag(branch)
+            return subd
+        return deferred.addCallback(set_tag)
         
