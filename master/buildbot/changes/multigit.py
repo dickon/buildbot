@@ -246,14 +246,13 @@ class MultiGit:
             self.tag_starting_index += 1
             defl = [git(rev['gitd'], 'tag', tag, 
                         rev['revision']) for rev in latestrev]
-            return failing_deferred_list(defl).addCallback(lambda _: tag)
+            subd = failing_deferred_list(defl)
+            def tag_done(_):
+                """Tagging complete"""
+                return self.master.addChange(comments = repr(branchrevs),
+                                             revision = tag)
+            return subd.addCallback(tag_done)
         deferred.addCallback(set_tag)
-        def tag_done(tag):
-            """Tagging complete"""
-            return self.master.addChange(comments = repr(branchrevs),
-                                         revision = tag)
-            
-        deferred.addCallback(tag_done)
         def again(failure):
             print 'WARNING: failed to set tag, will try again'
             failure.printTraceback(stdout)
