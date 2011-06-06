@@ -234,13 +234,8 @@ class MultiGit:
                 branchlatestrev = [rev for rev in latestrev if rev['branch'] == branch]
                 if oldrevs:
                     defl.append(  self.apply_tag(branch, branchlatestrev, branchrevs))
-            return DeferredList(defl, consumeErrors=True)
-        deferred.addCallback(determine_tag)
-        def check(dlo):
-            for status, stuff in dlo:
-                if not status:
-                    stuff.printTraceback(stdout)
-        return deferred.addCallback(check)
+            return failing_deferred_list(defl)
+        return deferred.addCallback(determine_tag)
 
     def apply_tag(self, branch, latestrev, branchrevs):
         """Tag all latestrev revisions with tag,
