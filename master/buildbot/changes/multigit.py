@@ -145,7 +145,13 @@ def check_list(deferred_list_output):
     if bad:
         bad.raiseException()
     return out
-        
+
+def failing_deferred_list(list_of_deferreds):
+    """Return a DeferredList which will print tracebacks and
+    raise the first exception"""
+    defl = DeferredList(list_of_deferreds, consumeErrors=True)
+    return defl.addCallback(check_list)
+
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -195,8 +201,7 @@ class MultiGit:
                     return out
                 subd.addCallback(annotate_branch, branch)
                 defl2.append(subd)
-            defl = DeferredList(defl2, consumeErrors=True)
-            return defl.addCallback(check_list)
+            return failing_deferred_list(defl2)
         deferred.addCallback(look_for_untagged)
         def flatten2(newrevs):
             """newrevs is a list of revs where
