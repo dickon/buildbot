@@ -256,8 +256,8 @@ class MultiGit:
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
-                return describe_tag(self.tag_format, {'branch':branch}, tag_index, 
-                                    self.repositories)
+                return describe_tag(self.tag_format, {'branch':branch}, 
+                                    tag_index, self.repositories)
             subd.addCallback(tag_done)
             def store_change(description):
                 """Declare change to upstream"""
