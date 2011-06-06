@@ -121,20 +121,12 @@ def get_branch_list(repositories):
     for repository in repositories:
         subd = git(repository, 'branch').addCallback(linesplitdropsplit)
         def convert(seq, repository):
+            """Turn [(_,x)] -> [(repository, x[-1])]"""
             return [ (repository, brl[-1]) for brl in seq]
         subd.addCallback(convert, repository)
         defl.append(subd)
-    deferred = DeferredList(defl, consumeErrors=True)
-    def flatten(dlo):
-        out = []
-        for ok, branches in dlo:
-            assert ok
-            if not ok:
-                branches.printTraceback()
-            else:
-                out += branches
-        return out
-    return deferred.addCallback(flatten)
+    deferred = failing_deferred_list(defl)
+    return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist))
 
 def annotate_list(sequence, **assignments):
     """Take sequence, a list of dictionaries, and return
