@@ -43,6 +43,12 @@ def run(*kl, **kd):
         return (out, err)
     return deferred.addCallback(check)
 
+def failing_deferred_list(list_of_deferreds):
+    """Return a DeferredList which will print tracebacks and
+    raise the first exception"""
+    defl = DeferredList(list_of_deferreds, consumeErrors=True)
+    return defl.addCallback(check_list)
+
 def git(gitd, *kl):
     """Run a git command and return its stdout, throwing away
     its stderr, but failing with UnexpectedExitCode if it does not exit 
@@ -105,8 +111,8 @@ def untagged_revisions(gitd, branch='master'):
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
-    return DeferredList([get_metadata(gitd, revision[0]) for 
-                         revision in revisions], consumeErrors=True)
+    return failing_deferred_list([get_metadata(gitd, revision[0]) for 
+                                  revision in revisions])
 
 def get_branch_list(repositories):
     """Return a deferred which gives (repository path, branch_name)* 
@@ -146,11 +152,6 @@ def check_list(deferred_list_output):
         bad.raiseException()
     return out
 
-def failing_deferred_list(list_of_deferreds):
-    """Return a DeferredList which will print tracebacks and
-    raise the first exception"""
-    defl = DeferredList(list_of_deferreds, consumeErrors=True)
-    return defl.addCallback(check_list)
 
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
@@ -193,12 +194,7 @@ class MultiGit:
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 def annotate_branch(metadata, branch):
-                    out = []
-                    for ok, item in metadata:
-                        assert ok
-                        item['branch'] = branch
-                        out.append(item)
-                    return out
+                    return [dict(item, branch=branch) for item in metadata]
                 subd.addCallback(annotate_branch, branch)
                 defl2.append(subd)
             return failing_deferred_list(defl2)
