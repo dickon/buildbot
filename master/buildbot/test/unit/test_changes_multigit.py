@@ -64,6 +64,11 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
         def check(o):
             self.assertIn('foo', o)
         return deferred.addCallback(check)
+    def test_missing_ref(self):
+        deferred = find_ref(self.workd, 'refs/heads/bar')
+        def check(me):
+            self.assertEquals(me, None)
+        return deferred.addCallback(check)
     def test_commit_detection(self):
         """Test that we see refs/heads/master change,
         and can read back commit messages"""
