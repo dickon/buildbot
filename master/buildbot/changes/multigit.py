@@ -246,22 +246,12 @@ class MultiGit:
             self.tag_starting_index += 1
             defl = [git(rev['gitd'], 'tag', tag, 
                         rev['revision']) for rev in latestrev]
-            subd = DeferredList( defl, consumeErrors=True).addCallback(
-                lambda dlo: (dlo, tag))
-            return subd
+            return failing_deferred_list(defl).addCallback(lambda _: tag)
         deferred.addCallback(set_tag)
-        def tag_done((dlo, tag)):
-            """Tagging complete or failed; retry if necessary"""
-            allgood = True
-            for status, outcome in dlo:
-                if not status:
-                    outcome.printTraceback(stdout)
-                    allgood = False
-            if allgood:
-                return self.master.addChange(comments = repr(branchrevs),
-                                             revision = tag)
-            else:
-                return self.apply_tag( branch, latestrev, branchrevs)
+        def tag_done(tag):
+            """Tagging complete"""
+            return self.master.addChange(comments = repr(branchrevs),
+                                         revision = tag)
             
         deferred.addCallback(tag_done)
         def again(failure):
