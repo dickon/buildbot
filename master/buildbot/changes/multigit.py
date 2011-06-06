@@ -226,8 +226,7 @@ class MultiGit:
             defl = []
             for branch in branches:
                 branchrevs = [rev for rev in newrevs if rev['branch'] == branch]
-                oldrevs = [rev for rev in branchrevs if 
-                           rev['commit_time'] <= latest]
+                oldrevs = [r for r in branchrevs if r['commit_time'] <= latest]
                 if oldrevs:
                     lrevs = latestrev.get('branch', {}).values()
                     defl.append(self.apply_tag(branch, lrevs, branchrevs))
