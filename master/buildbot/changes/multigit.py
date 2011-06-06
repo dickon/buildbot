@@ -182,14 +182,10 @@ class MultiGit:
                                    'index': self.tag_starting_index})
         deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
                      self.repositories]
-        deferred = DeferredList(deferreds, consumeErrors=True)
+        deferred = failing_deferred_list(deferreds)
         def check(dlo):
             """Check that all tag lookups failed, or try a higher tag number"""
-            all_fresh = True
-            for found, hash in dlo:
-                if hash is not None:
-                    all_fresh = False # this repository has the tag
-            if all_fresh:
+            if dlo == [None]*len(dlo):
                 return tag
             else:
                 self.tag_starting_index += 1
