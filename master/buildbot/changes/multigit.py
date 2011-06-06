@@ -245,8 +245,6 @@ class MultiGit:
             """Apply tag to all of latestrev"""
             defl = [git(rev['gitd'], 'tag', tag, 
                         rev['revision']) for rev in latestrev]
-            if defl == []: 
-                return 
             return DeferredList( defl, consumeErrors=True).addCallback(
                 lambda dlo: (dlo, tag))
         deferred.addCallback(set_tag)
