@@ -212,25 +212,25 @@ class MultiGit:
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
             newrevs = reduce( list.__add__, newrevs)
-            latestrev = []
+            latestrev = {}
             branches = set()
             seen = set()
             for rev in newrevs:
                 if rev['branch'] not in seen:
                     seen.add(rev['branch'])
-                    latestrev.append(rev)
-                    branches.add(rev['branch'])
+                branches.add(rev['branch'])
+                latestrev.setdefault(rev['branch'], dict())
+                if rev['gitd'] not in latestrev[rev['branch']]:
+                    latestrev[rev['branch']][rev['gitd']] = rev
             latest = time() - self.age_requirement
             defl = []
             for branch in branches:
                 branchrevs = [rev for rev in newrevs if rev['branch'] == branch]
                 oldrevs = [rev for rev in branchrevs if 
                            rev['commit_time'] <= latest]
-                branchlatestrev = [rev for rev in latestrev if 
-                                   rev['branch'] == branch]
                 if oldrevs:
-                    defl.append(  self.apply_tag(branch, 
-                                                 branchlatestrev, branchrevs))
+                    lrevs = latestrev.get('branch', {}).values()
+                    defl.append(self.apply_tag(branch, lrevs, branchrevs))
             return failing_deferred_list(defl)
         return deferred.addCallback(determine_tags)
 
