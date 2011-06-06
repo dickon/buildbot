@@ -78,6 +78,9 @@ def find_ref(gitd, ref):
     deferred.addCallback(linesplitdropsplit)
     deferred.addCallback(lambda x: x[0][0])
     def handle_failure(failure):
+        failure.trap(UnexpectedExitCode)
+        if failure.value.exit_code == 1 and failure.value.out == '':
+            return
         return failure
     return deferred.addErrback(handle_failure)
     
@@ -183,8 +186,8 @@ class MultiGit:
         def check(dlo):
             """Check that all tag lookups failed, or try a higher tag number"""
             all_fresh = True
-            for found, _ in dlo:
-                if found:
+            for found, hash in dlo:
+                if hash is not None:
                     all_fresh = False # this repository has the tag
             if all_fresh:
                 return tag
