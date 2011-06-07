@@ -202,7 +202,7 @@ def tag_branch_if_exists(gitd, tag, branch):
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
     in some."""
-    def __init__(self, repositories, master, tag_format='%(branch)s-%(index)d',
+    def __init__(self, master, repositories=list(), tag_format='%(branch)s-%(index)d',
                  age_requirement=0, tag_starting_index = 1):
         self.repositories = repositories
         self.master = master

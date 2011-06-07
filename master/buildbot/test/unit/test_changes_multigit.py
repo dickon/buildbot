@@ -134,8 +134,8 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         deferred.addCallback(lambda _: self.setUpChangeSource())
         def create(_):
             """Create and stash the MultiGit instance"""
-            self.multigit = MultiGit([repo.workd for repo in self.repos], 
-                                     self.master)
+            self.multigit = MultiGit(self.master, 
+                                     [repo.workd for repo in self.repos])
         return deferred.addCallback(create)
     def tearDown(self):
         deferred = failing_deferred_list([repo.tearDown() for repo in self.repos])
