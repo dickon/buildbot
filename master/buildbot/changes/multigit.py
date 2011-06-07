@@ -196,7 +196,7 @@ def tag_branch_if_exists(gitd, tag, branch):
     deferred = git(gitd, 'branch').addCallback(linesplitdropsplit)
     def check(branchlistlist):
         if [x for x in branchlistlist if x[-1] == branch]:
-            return git(gitd, 'tag', tag, branch)
+            return git(gitd, 'tag', '-m', tag, tag, branch)
     return deferred.addCallback(check)
 
 class MultiGit:
