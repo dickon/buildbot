@@ -324,17 +324,12 @@ class MultiGit(PollingChangeSource):
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
             self.status = 'looking for untagged revisions'
-            defl2 = []
-            for repository, branch in repobranchlist:
+            def cb( (repository, branch)):
                 self.branches.setdefault(branch, None)
-                def make_cb(repository, branch):
-                    def cb():
-                        subd = untagged_revisions(repository, branch)
-                        subd.addCallback(get_metadata_for_revisions, repository)
-                        return subd.addCallback(annotate_list, branch=branch)
-                    return cb
-                defl2.append(make_cb(repository, branch))
-            return sequencer(defl2)
+                subd = untagged_revisions(repository, branch)
+                subd.addCallback(get_metadata_for_revisions, repository)
+                return subd.addCallback(annotate_list, branch=branch)
+            return sequencer(repobranchlist,callback=cb)
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
