@@ -356,12 +356,8 @@ class MultiGit(PollingChangeSource):
         def set_tag((tag, tag_index)):
             """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
-            def tag_branch_if_exists_cb(gitd, tag, branch):
-                return lambda: tag_branch_if_exists(gitd, tag, branch)
-
-            defl = [tag_branch_if_exists_cb(gitd, tag, branch) for gitd 
-                    in self.repositories]
-            subd = sequencer(defl)
+            subd = sequencer(self.repositories, callback=tag_branch_if_exists,
+                             arguments = [tag, branch])
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
