@@ -329,7 +329,7 @@ class MultiGit(PollingChangeSource):
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 return subd.addCallback(annotate_list, branch=branch)
-            return sequencer(repobranchlist,callback=cb)
+            return sequencer(repobranchlist, callback=cb)
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
