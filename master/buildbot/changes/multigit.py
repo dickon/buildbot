@@ -20,6 +20,7 @@ from time import strptime, mktime, time
 from twisted.internet.defer import DeferredList
 from pprint import pprint
 from sys import stdout
+from buildbot.changes.base import PollingChangeSource
 
 class UnexpectedExitCode(Exception):
     """A subprocess exited with an unexpected exit code"""
@@ -199,14 +200,15 @@ def tag_branch_if_exists(gitd, tag, branch):
             return git(gitd, 'tag', '-m', tag, tag, branch)
     return deferred.addCallback(check)
 
-class MultiGit:
+class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
     def __init__(self, master, repositories=list(), tag_format='%(branch)s-%(index)d',
-                 age_requirement=0, tag_starting_index = 1):
+                 age_requirement=0, tag_starting_index = 1, pollInterval=10*60):
         self.repositories = repositories
         self.master = master
         self.age_requirement = 0
+        self.pollInterval = pollInterval
         self.tag_starting_index = tag_starting_index
         self.tag_format = tag_format
 
