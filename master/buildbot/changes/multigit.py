@@ -309,10 +309,13 @@ class MultiGit(PollingChangeSource):
             defl2 = []
             for repository, branch in repobranchlist:
                 self.branches.setdefault(branch, None)
-                subd = untagged_revisions(repository, branch)
-                subd.addCallback(get_metadata_for_revisions, repository)
-                subd.addCallback(annotate_list, branch=branch)
-                defl2.append(subd)
+                def make_cb(repository, branch):
+                    def cb():
+                        subd = untagged_revisions(repository, branch)
+                        subd.addCallback(get_metadata_for_revisions, repository)
+                        return subd.addCallback(annotate_list, branch=branch)
+                    return cb
+                defl2.append(make_cb(repository, branch))
             return sequencer(defl2)
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
@@ -323,8 +326,9 @@ class MultiGit(PollingChangeSource):
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
             self.status = 'creating tags'
-            defl = [self.create_tag(branch) for branch in branches]
-            return sequencer(defl)
+            def handle_branch(branch):
+                return lambda: self.create_tag(branch)
+            return sequencer([handle_branch(branch) for branch in branches])
         deferred.addCallback(determine_tags)
         def finish(x):
             self.status = 'finished '+repr(x).replace('<', '&lt;')+' after '+self.status
