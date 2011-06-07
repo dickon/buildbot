@@ -58,11 +58,29 @@ def run(*kl, **kd):
         return (out, err)
     return deferred.addCallback(check)
 
-def failing_deferred_list(list_of_deferreds):
+class ListProcessor:
+    def __init__(self, defl, **kd):
+        self.defl = defl
+        self.out = []
+        self.kd = kd
+    def tick(self, n=2):
+        todo = self.defl[:n]
+        self.defl = self.defl[n:]
+        deferred = DeferredList(todo, **self.kd)
+        def record(me):
+            self.out += me
+            if self.defl == []:
+                return self.out
+            else:
+                return self.tick(n)
+        return deferred.addCallback(record)
+    
+                 
+def failing_deferred_list(list_of_deferreds, parallelism = 2):
     """Return a DeferredList which will print tracebacks and
     raise the first exception"""
-    defl = DeferredList(list_of_deferreds, consumeErrors=True)
-    return defl.addCallback(check_list)
+    lp = ListProcessor(list_of_deferreds, consumeErrors=True)
+    return lp.tick(n=parallelism).addCallback(check_list)
 
 def annotate_list(sequence, **assignments):
     """Take sequence, a list of dictionaries, and return
@@ -295,7 +313,11 @@ class MultiGit(PollingChangeSource):
             return failing_deferred_list(defl)
         deferred.addCallback(determine_tags)
         def finish(x):
-            self.status = 'finished'
+            self.status = 'finished '+repr(x).replace('<', '&lt;')+' after '+self.status
+            try:
+                x.printTraceback(stdout)
+            except AttributeError:
+                pass
             self.lastFinish = time()
             return x
         return deferred.addCallbacks(finish, finish)
@@ -328,9 +350,11 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallback(set_tag)
         
     def describe(self):
-        return 'MultiGit on %s %s %s. Branches %r. Repositories <B>%r</b>' % (
+        return 'MultiGit on %s %s %s. <h2>Branches</h2><div> %r</div>' \
+            '<h2>Repositories</h2> <div>%s</div>' % (
             self.repositories_directory, self.status, 
                 'unrun' if self.lastFinish is None else 
                 '%d seconds ago' % (time() - self.lastFinish), self.branches,
-            [x[len(self.repositories_directory)+1:] for x in self.repositories])
+            ', '.join(
+                [x[len(self.repositories_directory)+1:] for x in self.repositories]))
     
