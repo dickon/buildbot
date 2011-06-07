@@ -180,7 +180,7 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
         [git(gitd, 'log', prev+'..'+tag) for gitd in repositories])
     def annotate(textlist):
         return 'Differences between %s and %s:\n%s' % (
-            prev, tag, reduce(list.__add__, textlist))
+            prev, tag, reduce(str.__add__, textlist))
     deferred.addCallback(annotate)
     def again(failure):
         failure.trap(UnexpectedExitCode)
@@ -190,6 +190,14 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
         if offset > -10000 and index + offset > 0:
             return describe_tag(tag_format, format_data, index, repositories, offset-1)
     return deferred.addErrback( again)
+
+def tag_branch_if_exists(gitd, tag, branch):
+    """Tag branch with tag if it exists"""
+    deferred = git(gitd, 'branch').addCallback(linesplitdropsplit)
+    def check(branchlistlist):
+        if [x for x in branchlistlist if x[-1] == branch]:
+            return git(gitd, 'tag', tag, branch)
+    return deferred.addCallback(check)
 
 class MultiGit:
     """Track multiple repositories, tagging when new revisions appear
@@ -251,7 +259,7 @@ class MultiGit:
         def set_tag((tag, tag_index)):
             """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
-            defl = [git(gitd, 'tag', tag, branch) for gitd in self.repositories]
+            defl = [tag_branch_if_exists(gitd, tag, branch) for gitd in self.repositories]
             subd = failing_deferred_list(defl)
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):

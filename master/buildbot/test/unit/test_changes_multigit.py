@@ -15,7 +15,7 @@
 
 from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
-from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit
+from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit, failing_deferred_list
 from buildbot.test.util import changesource
 from tempfile import mkdtemp
 from time import time
@@ -126,16 +126,19 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
         deferred = untagged_revisions(self.workd)
         return deferred.addCallback(lambda seq: self.assertEquals(seq, []))
 
-class TestMultiGit(PopulatedRepository, unittest.TestCase,
-                   changesource.ChangeSourceMixin):
+class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
+    """Test multiple git repository polling"""
     def setUp(self):
-        deferred = PopulatedRepository.setUp(self)
+        self.repos = [PopulatedRepository(), PopulatedRepository()]
+        deferred = failing_deferred_list([repo.setUp() for repo in self.repos])
         deferred.addCallback(lambda _: self.setUpChangeSource())
         def create(_):
-            self.multigit = MultiGit([self.workd], self.master)
+            """Create and stash the MultiGit instance"""
+            self.multigit = MultiGit([repo.workd for repo in self.repos], 
+                                     self.master)
         return deferred.addCallback(create)
     def tearDown(self):
-        deferred = PopulatedRepository.tearDown(self)
+        deferred = failing_deferred_list([repo.tearDown() for repo in self.repos])
         def detach(_):
             del self.multigit
         deferred.addCallback(detach)
@@ -146,9 +149,9 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
             self.assertEqual(len(self.changes_added), 0)
         return deferred.addCallback(check1)
     def test_poll_two_commits(self):
-        deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(
-            lambda _: add_commit(self.workd, 'c', 'd', 'e'))
+            lambda _: add_commit(self.repos[0].workd, 'c', 'd', 'e'))
         self.multigit.age_requirement = 0
         deferred.addCallback(lambda _: self.multigit.poll())
         def check2(_):
@@ -157,20 +160,19 @@ class TestMultiGit(PopulatedRepository, unittest.TestCase,
             self.assertEqual('master-2', self.changes_added[0]['revision'])
         return deferred.addCallback(check2)
     def test_poll_one_recent_commit(self):
-        deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         self.multigit.age_requirement = 600
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
             self.assertEqual(len(self.changes_added), 0)
         return deferred.addCallback(check)
     def test_poll_multi_branches(self):
-        deferred = add_commit(self.workd, 'a', 'b', 'xyzzy')
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(lambda _:
-                                 add_commit(self.workd, 'd', 'e', 'erer', branch='branch2'))
+                                 add_commit(self.repos[0].workd, 'd', 'e', 'erer', branch='branch2'))
         self.multigit.age_requirement = 0
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
             self.assertEqual(len(self.changes_added), 2)
         return deferred.addCallback(check)
         
-    
