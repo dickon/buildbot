@@ -81,7 +81,7 @@ class ListProcessor:
         return deferred.addCallback(record)
     
                  
-def failing_deferred_list(list_of_deferreds, parallelism = 2):
+def sequencer(list_of_deferreds, parallelism = 2):
     """Return a DeferredList which will print tracebacks and
     raise the first exception"""
     lp = ListProcessor(list_of_deferreds, consumeErrors=True)
@@ -163,7 +163,7 @@ def untagged_revisions(gitd, branch='master'):
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
-    return failing_deferred_list([(lambda: get_metadata(gitd, revision[0])) for 
+    return sequencer([(lambda: get_metadata(gitd, revision[0])) for 
                                   revision in revisions])
 
 def get_branch_list(repositories):
@@ -177,7 +177,7 @@ def get_branch_list(repositories):
             return [ (repository, brl[-1]) for brl in seq]
         subd.addCallback(convert, repository)
         defl.append(subd)
-    deferred = failing_deferred_list(defl)
+    deferred = sequencer(defl)
     return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist, []))
 
 def check_list(deferred_list_output):
@@ -202,7 +202,7 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     format data and the previous tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
     prev = tag_format % dict(format_data, index=index+offset)
-    deferred = failing_deferred_list(
+    deferred = sequencer(
         [git(gitd, 'log', prev+'..'+tag) for gitd in repositories])
     def annotate(textlist):
         return 'Differences between %s and %s:\n%s' % (
@@ -266,7 +266,7 @@ class MultiGit(PollingChangeSource):
         tag_index = self.tagStartingIndex
         deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
                      self.repositories]
-        deferred = failing_deferred_list(deferreds)
+        deferred = sequencer(deferreds)
         def check(hashes):
             """Check that tag did not exist in all repositories,
             or try a higher tag number"""
@@ -286,7 +286,7 @@ class MultiGit(PollingChangeSource):
         deferred = succeed(None)
         def auto_fetch(_):
             self.status = 'fetching'
-            return failing_deferred_list(
+            return sequencer(
                 [git(gitd, 'fetch') for gitd in self.repositories])
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
@@ -304,7 +304,7 @@ class MultiGit(PollingChangeSource):
                 subd.addCallback(get_metadata_for_revisions, repository)
                 subd.addCallback(annotate_list, branch=branch)
                 defl2.append(subd)
-            return failing_deferred_list(defl2)
+            return sequencer(defl2)
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
@@ -315,7 +315,7 @@ class MultiGit(PollingChangeSource):
                     branches.add(rev['branch'])
             self.status = 'creating tags'
             defl = [self.create_tag(branch) for branch in branches]
-            return failing_deferred_list(defl)
+            return sequencer(defl)
         deferred.addCallback(determine_tags)
         def finish(x):
             self.status = 'finished '+repr(x).replace('<', '&lt;')+' after '+self.status
@@ -333,7 +333,7 @@ class MultiGit(PollingChangeSource):
             """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
             defl = [tag_branch_if_exists(gitd, tag, branch) for gitd in self.repositories]
-            subd = failing_deferred_list(defl)
+            subd = sequencer(defl)
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""

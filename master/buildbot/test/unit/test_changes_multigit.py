@@ -15,7 +15,7 @@
 
 from twisted.trial import unittest
 from buildbot.changes.multigit import MultiGit, find_ref, get_metadata, run, git
-from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit, failing_deferred_list
+from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit, sequencer
 from buildbot.test.util import changesource
 from tempfile import mkdtemp
 from time import time
@@ -135,7 +135,7 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         with file(join(self.parent_directory,'foo'), 'w') as f:
             f.write('ignore me\n')
         self.repos = [PopulatedRepository(),PopulatedRepository()]
-        deferred = failing_deferred_list([repo.populatedRepositorySetUp(self.parent_directory, name) for 
+        deferred = sequencer([repo.populatedRepositorySetUp(self.parent_directory, name) for 
                                           repo, name in zip(self.repos, ['alpha', 'beta'])])
         deferred.addCallback(lambda _: self.setUpChangeSource())
         def create(_):
