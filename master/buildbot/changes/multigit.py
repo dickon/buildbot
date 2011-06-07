@@ -21,7 +21,7 @@ from twisted.internet.defer import DeferredList
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
-from os.path import join
+from os.path import join, isdir, isfile
 from os import listdir
 
 class UnexpectedExitCode(Exception):
@@ -155,7 +155,7 @@ def get_branch_list(repositories):
         subd.addCallback(convert, repository)
         defl.append(subd)
     deferred = failing_deferred_list(defl)
-    return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist))
+    return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist, []))
 
 def check_list(deferred_list_output):
     """Remove the status fields from a deferred_list_output, 
@@ -202,6 +202,22 @@ def tag_branch_if_exists(gitd, tag, branch):
             return git(gitd, 'tag', '-m', tag, tag, branch)
     return deferred.addCallback(check)
 
+
+def scan_for_repositories(repositories_directory):
+    """Scan for git directories directly within repositories_directory and
+    return a list of full path names"""
+    seq = []
+    for item in listdir(repositories_directory):
+        pathname = join(repositories_directory, item)
+        if not isdir(pathname): 
+            continue
+        if ((isfile(join(pathname, 'config')) and isdir(
+                    join(pathname, 'refs'))) or
+            (isfile(join(pathname, '.git', 'config')) and isdir(
+                    join(pathname, '.git', 'refs')))):
+            seq.append(pathname)
+    return seq
+
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -209,10 +225,11 @@ class MultiGit(PollingChangeSource):
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
         self.repositories_directory = repositories_directory
         self.master = master
-        self.ageRequirement = 0
+        self.ageRequirement = 0 # XXX set to ageRequirement argument
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.tagFormat = tagFormat
+        self.repositories = scan_for_repositories(self.repositories_directory)
 
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
@@ -235,8 +252,7 @@ class MultiGit(PollingChangeSource):
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
-        self.repositories = [join(self.repositories_directory, item) for
-                             item in listdir(self.repositories_directory)]
+        self.repositories = scan_for_repositories(self.repositories_directory)
         deferred = get_branch_list(self.repositories)
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
@@ -252,7 +268,7 @@ class MultiGit(PollingChangeSource):
             """Figure out if a tag is warranted for each branch"""
             latest = time() - self.ageRequirement
             branches = set()
-            for rev in reduce( list.__add__, newrevs):
+            for rev in reduce( list.__add__, newrevs) if newrevs else []:
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
             defl = [self.create_tag(branch) for branch in branches]
