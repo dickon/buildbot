@@ -225,7 +225,7 @@ class MultiGit(PollingChangeSource):
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
         self.repositories_directory = repositories_directory
         self.master = master
-        self.ageRequirement = 0 # XXX set to ageRequirement argument
+        self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.tagFormat = tagFormat
