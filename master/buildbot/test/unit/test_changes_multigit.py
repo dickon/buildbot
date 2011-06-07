@@ -161,7 +161,7 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         return deferred.addCallback(check2)
     def test_poll_one_recent_commit(self):
         deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
-        self.multigit.age_requirement = 600
+        self.multigit.ageRequirement = 600
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
             self.assertEqual(len(self.changes_added), 0)

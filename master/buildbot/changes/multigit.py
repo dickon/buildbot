@@ -203,20 +203,20 @@ def tag_branch_if_exists(gitd, tag, branch):
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
-    def __init__(self, master, repositories=list(), tag_format='%(branch)s-%(index)d',
-                 age_requirement=0, tag_starting_index = 1, pollInterval=10*60):
+    def __init__(self, master, repositories=list(), tagFormat='%(branch)s-%(index)d',
+                 ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
         self.repositories = repositories
         self.master = master
-        self.age_requirement = 0
+        self.ageRequirement = 0
         self.pollInterval = pollInterval
-        self.tag_starting_index = tag_starting_index
-        self.tag_format = tag_format
+        self.tagStartingIndex = tagStartingIndex
+        self.tagFormat = tagFormat
 
     def find_fresh_tag(self, branch='master'):
-        """Find a fresh tag across all repositories based on self.tag_format"""
-        tag = self.tag_format % ( {'branch': branch,
-                                   'index': self.tag_starting_index})
-        tag_index = self.tag_starting_index
+        """Find a fresh tag across all repositories based on self.tagFormat"""
+        tag = self.tagFormat % ( {'branch': branch,
+                                   'index': self.tagStartingIndex})
+        tag_index = self.tagStartingIndex
         deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
                      self.repositories]
         deferred = failing_deferred_list(deferreds)
@@ -227,11 +227,11 @@ class MultiGit(PollingChangeSource):
                 return tag, tag_index
             else:
                 return self.find_fresh_tag(branch)
-        self.tag_starting_index += 1
+        self.tagStartingIndex += 1
         return deferred.addCallback(check)
 
     def poll(self):
-        """Look for untagged revisions at least age_requirement seconds old, 
+        """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
         deferred = get_branch_list(self.repositories)
         def look_for_untagged(repobranchlist):
@@ -246,7 +246,7 @@ class MultiGit(PollingChangeSource):
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
-            latest = time() - self.age_requirement
+            latest = time() - self.ageRequirement
             branches = set()
             for rev in reduce( list.__add__, newrevs):
                 if rev['commit_time'] <= latest:
@@ -266,7 +266,7 @@ class MultiGit(PollingChangeSource):
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
-                return describe_tag(self.tag_format, {'branch':branch}, 
+                return describe_tag(self.tagFormat, {'branch':branch}, 
                                     tag_index, self.repositories)
             subd.addCallback(tag_done)
             def store_change(description):
