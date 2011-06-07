@@ -17,7 +17,7 @@ repositories and passes tags up as the revisions we tag."""
 
 from twisted.internet.utils import getProcessOutputAndValue
 from time import strptime, mktime, time
-from twisted.internet.defer import DeferredList, succeed
+from twisted.internet.defer import DeferredList, succeed, Deferred
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
@@ -70,7 +70,8 @@ class ListProcessor:
     def tick(self, n=2):
         todo = self.defl[:n]
         self.defl = self.defl[n:]
-        deferred = DeferredList(todo, **self.kd)
+        todo_in = [x if isinstance(x, Deferred) else x() for x in todo]
+        deferred = DeferredList(todo_in, **self.kd)
         def record(me):
             self.out += me
             if self.defl == []:
@@ -162,7 +163,7 @@ def untagged_revisions(gitd, branch='master'):
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
-    return failing_deferred_list([get_metadata(gitd, revision[0]) for 
+    return failing_deferred_list([(lambda: get_metadata(gitd, revision[0])) for 
                                   revision in revisions])
 
 def get_branch_list(repositories):
