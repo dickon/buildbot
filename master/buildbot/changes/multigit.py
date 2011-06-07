@@ -81,11 +81,16 @@ class ListProcessor:
         return deferred.addCallback(record)
     
                  
-def sequencer(list_of_deferreds, parallelism = 2):
-    """Return a DeferredList which will print tracebacks and
-    raise the first exception"""
-    lp = ListProcessor(list_of_deferreds, consumeErrors=True)
-    return lp.tick(n=parallelism).addCallback(check_list)
+def sequencer(input, n = 2):
+    """Return a deferred which contains a result for each item in input.
+    If the item is a deferred, the result of it is returned. Otherwise,
+    it is called with no arguments and if that call returns a deferred
+    then we wait for that. 
+
+    At most n items in the list are run in parallel.
+    """ 
+    lp = ListProcessor(input, consumeErrors=True)
+    return lp.tick(n=n).addCallback(check_list)
 
 def annotate_list(sequence, **assignments):
     """Take sequence, a list of dictionaries, and return
