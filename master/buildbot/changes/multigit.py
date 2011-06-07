@@ -68,7 +68,6 @@ class ListProcessor:
         self.out = []
         self.arguments = kd.pop('arguments', [])
         self.callback = kd.pop('callback', None)
-        assert self.callback is None
         self.kd = kd
     def tick(self, n=2):
         todo = self.defl[:n]
@@ -302,11 +301,9 @@ class MultiGit(PollingChangeSource):
         self.tagStartingIndex += 1
         return deferred.addCallback(check)
 
-    def for_each_repository(self, fn):
+    def for_each_repository(self, fn, *l):
         """Run fn on each repository"""
-        def go(gitd):
-            return lambda: fn(gitd)
-        return sequencer( [go(gitd) for gitd in self.repositories])
+        return sequencer(self.repositories, callback=fn, arguments=l)
 
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
