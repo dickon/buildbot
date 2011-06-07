@@ -339,9 +339,7 @@ class MultiGit(PollingChangeSource):
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
             self.status = 'creating tags'
-            def handle_branch(branch):
-                return lambda: self.create_tag(branch)
-            return sequencer([handle_branch(branch) for branch in branches])
+            return sequencer(list(sorted(branches)), callback=self.create_tag)
         deferred.addCallback(determine_tags)
         def finish(x):
             self.status = 'finished '+repr(x).replace('<', '&lt;')+' after '+self.status
