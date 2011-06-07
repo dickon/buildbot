@@ -19,6 +19,7 @@ from buildbot.changes.multigit import untagged_revisions, linesplitdropsplit, fa
 from buildbot.test.util import changesource
 from tempfile import mkdtemp
 from time import time
+from os.path import join
 
 def add_commit(workd, filename, contents, message, branch='master'):
     """Add a commit to workd which sets filename to contain
@@ -46,19 +47,20 @@ class PopulatedRepository:
     def git(self, *arguments):
         """Run a git command with arguments on our test repository"""
         return git(self.workd, *arguments)
-    def setUp(self):
+    def populatedRepositorySetUp(self, parent, name):
         """Prepare the test repsotiroy"""
-        self.workd = mkdtemp('.testgit')
-        deferred = self.git('init')
+        self.workd = join(parent, name)
+        deferred = run('mkdir', ['-p', self.workd])
+        deferred.addCallback(lambda _: self.git('init'))
         deferred.addCallback(lambda _: add_commit(self.workd, 'bar', 
                                      'spong', 'foo'))
         return deferred.addCallback(lambda _: git(self.workd, 'tag', 'master-1'))
-    def tearDown(self):
-        """Remove the test repository"""
-        return run('rm', ['-rf', self.workd])
 
 class TestGitFunctions(PopulatedRepository, unittest.TestCase):
     """Test some basic operations"""
+    def setUp(self):
+        parent = self.parent_directory = mkdtemp('.testgit')
+        return PopulatedRepository.populatedRepositorySetUp(self, parent, 'test')
     def test_get_log(self):
         deferred = self.git('log')
         def check(o):
@@ -129,16 +131,17 @@ class TestGitFunctions(PopulatedRepository, unittest.TestCase):
 class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
     """Test multiple git repository polling"""
     def setUp(self):
-        self.repos = [PopulatedRepository(), PopulatedRepository()]
-        deferred = failing_deferred_list([repo.setUp() for repo in self.repos])
+        self.parent_directory = mkdtemp('.testgit')
+        self.repos = [PopulatedRepository(),PopulatedRepository()]
+        deferred = failing_deferred_list([repo.populatedRepositorySetUp(self.parent_directory, name) for 
+                                          repo, name in zip(self.repos, ['alpha', 'beta'])])
         deferred.addCallback(lambda _: self.setUpChangeSource())
         def create(_):
             """Create and stash the MultiGit instance"""
-            self.multigit = MultiGit(self.master, 
-                                     [repo.workd for repo in self.repos])
+            self.multigit = MultiGit(self.master, self.parent_directory)
         return deferred.addCallback(create)
     def tearDown(self):
-        deferred = failing_deferred_list([repo.tearDown() for repo in self.repos])
+        deferred = run('rm', ['-rf', self.parent_directory])
         def detach(_):
             del self.multigit
         deferred.addCallback(detach)

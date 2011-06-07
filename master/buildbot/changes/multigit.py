@@ -21,6 +21,8 @@ from twisted.internet.defer import DeferredList
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
+from os.path import join
+from os import listdir
 
 class UnexpectedExitCode(Exception):
     """A subprocess exited with an unexpected exit code"""
@@ -203,9 +205,9 @@ def tag_branch_if_exists(gitd, tag, branch):
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
-    def __init__(self, master, repositories=list(), tagFormat='%(branch)s-%(index)d',
+    def __init__(self, master, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
-        self.repositories = repositories
+        self.repositories_directory = repositories_directory
         self.master = master
         self.ageRequirement = 0
         self.pollInterval = pollInterval
@@ -215,7 +217,7 @@ class MultiGit(PollingChangeSource):
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
         tag = self.tagFormat % ( {'branch': branch,
-                                   'index': self.tagStartingIndex})
+                                  'index': self.tagStartingIndex})
         tag_index = self.tagStartingIndex
         deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
                      self.repositories]
@@ -233,6 +235,8 @@ class MultiGit(PollingChangeSource):
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
+        self.repositories = [join(self.repositories_directory, item) for
+                             item in listdir(self.repositories_directory)]
         deferred = get_branch_list(self.repositories)
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
