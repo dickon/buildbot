@@ -219,6 +219,12 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     format data and the previous tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
     prev = tag_format % dict(format_data, index=index+offset)
+    def silence(failure):
+        failure.trap(UnexpectedExitCode)
+        return ''
+    def git_supress(*args):
+        deferred = git(*args)
+        return deferred.addErrback(silence)
     deferred = sequencer(repositories, callback=git, 
                          arguments=['log', prev+'..'+tag])
     def annotate(textlist):
