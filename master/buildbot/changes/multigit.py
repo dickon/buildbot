@@ -267,9 +267,9 @@ class MultiGit(PollingChangeSource):
         tag = self.tagFormat % ( {'branch': branch,
                                   'index': self.tagStartingIndex})
         tag_index = self.tagStartingIndex
-        deferreds = [find_ref(gitd, 'refs/tags/'+tag) for gitd in 
-                     self.repositories]
-        deferred = sequencer(deferreds)
+        def call_find_ref(gitd):
+            return lambda: find_ref(gitd, 'refs/tags/'+tag) 
+        deferred = sequencer([call_find_ref(gitd) for gitd in self.repositories])
         def check(hashes):
             """Check that tag did not exist in all repositories,
             or try a higher tag number"""
