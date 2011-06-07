@@ -66,13 +66,24 @@ class ListProcessor:
     def __init__(self, defl, **kd):
         self.defl = defl
         self.out = []
+        self.arguments = kd.pop('arguments', [])
+        self.callback = kd.pop('callback', None)
+        assert self.callback is None
         self.kd = kd
     def tick(self, n=2):
         todo = self.defl[:n]
         self.defl = self.defl[n:]
-        todo_in = [x if isinstance(x, Deferred) else 
-                   maybeDeferred(x) for x in todo]
-        deferred = DeferredList(todo_in, **self.kd)
+        todo_mapped = []
+        for x in todo:
+            if isinstance(x, Deferred):
+                y = x
+            elif self.callback:
+                y = maybeDeferred(self.callback, *([x]+list(self.arguments)))
+            else:
+                y = maybeDeferred(x, *self.arguments)
+            todo_mapped.append(y)
+                                               
+        deferred = DeferredList(todo_mapped, **self.kd)
         def record(me):
             self.out += me
             if self.defl == []:
@@ -82,15 +93,19 @@ class ListProcessor:
         return deferred.addCallback(record)
     
                  
-def sequencer(input, n = 2):
+def sequencer(input, arguments = [], callback=None, n = 2):
     """Return a deferred which contains a result for each item in input.
-    If the item is a deferred, the result of it is returned. Otherwise,
-    it is called with no arguments and if that call returns a deferred
-    then we wait for that. 
+    If the item is a deferred, the result of it is returned. 
+
+    Otherwise, if callback is defined, then callback is called with the item,
+    otherwise the item itself is called. Whether or not callback is defined,
+    arguments are supplied to the callback, and the callback result
+    is turned into a deferred if it is not already one.
 
     At most n items in the list are run in parallel.
     """ 
-    lp = ListProcessor(input, consumeErrors=True)
+    lp = ListProcessor(input, callback=callback, 
+                       arguments=arguments, consumeErrors=True)
     return lp.tick(n=n).addCallback(check_list)
 
 def annotate_list(sequence, **assignments):
