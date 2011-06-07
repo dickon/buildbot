@@ -188,15 +188,13 @@ def get_metadata_for_revisions(revisions, gitd):
 def get_branch_list(repositories):
     """Return a deferred which gives (repository path, branch_name)* 
     across repositories"""
-    defl = []
-    for repository in repositories:
+    def get_list_for_repo(repository):
         subd = git(repository, 'branch').addCallback(linesplitdropsplit)
         def convert(seq, repository):
             """Turn [(_,x)] -> [(repository, x[-1])]"""
             return [ (repository, brl[-1]) for brl in seq]
-        subd.addCallback(convert, repository)
-        defl.append(subd)
-    deferred = sequencer(defl)
+        return subd.addCallback(convert, repository)
+    deferred = sequencer(repositories, callback=get_list_for_repo)
     return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist, []))
 
 def check_list(deferred_list_output):
