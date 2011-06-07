@@ -163,8 +163,10 @@ def untagged_revisions(gitd, branch='master'):
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
-    return sequencer([(lambda: get_metadata(gitd, revision[0])) for 
-                                  revision in revisions])
+    def get_metadata_cb(gitd, revision):
+        return lambda: get_metadata(gitd, revision[0])
+    return sequencer([get_metadata_cb(gitd, revision) for 
+                      revision in revisions])
 
 def get_branch_list(repositories):
     """Return a deferred which gives (repository path, branch_name)* 
