@@ -61,7 +61,7 @@ class PollingChangeSource(ChangeSource):
         # miss an initial flood of changes
         def start_loop():
             self._loop = task.LoopingCall(do_poll)
-            self._loop.start(self.pollInterval, now=False)
+            self._loop.start(self.pollInterval, now=True)
         reactor.callWhenRunning(start_loop)
 
     def stopService(self):

@@ -258,6 +258,9 @@ def scan_for_repositories(repositories_directory):
             seq.append(pathname)
     return seq
 
+def safe_branch(x):
+    return x.replace(' ', '_').replace('.', '_')
+
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -278,7 +281,7 @@ class MultiGit(PollingChangeSource):
 
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
-        tag = self.tagFormat % ( {'branch': branch,
+        tag = self.tagFormat % ( {'branch': safe_branch(branch),
                                   'index': self.tagStartingIndex})
         tag_index = self.tagStartingIndex
         deferred = sequencer(self.repositories, callback=find_ref,
@@ -350,7 +353,7 @@ class MultiGit(PollingChangeSource):
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
-                return describe_tag(self.tagFormat, {'branch':branch}, 
+                return describe_tag(self.tagFormat, {'branch':safe_branch(branch)}, 
                                     tag_index, self.repositories)
             subd.addCallback(tag_done)
             def store_change(description):
