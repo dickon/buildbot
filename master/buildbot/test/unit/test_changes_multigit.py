@@ -175,7 +175,7 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
     def test_poll_multi_branches(self):
         deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(lambda _:
-                                 add_commit(self.repos[0].workd, 'd', 'e', 'erer', branch='branch2'))
+                                add_commit(self.repos[0].workd, 'd', 'e', 'erer', branch='branch2'))
         self.multigit.age_requirement = 0
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
@@ -185,4 +185,8 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         self.failUnless(self.parent_directory in self.multigit.describe())
     def test_describe_never_ran(self):
         self.failUnless('unrun' in self.multigit.describe())
-
+    def test_poll_check_branches(self):
+        deferred = self.multigit.poll()
+        def check(_):
+            self.failUnless('master' in self.multigit.branches)
+        return deferred.addCallback(check)
