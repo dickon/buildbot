@@ -47,11 +47,15 @@ def run(*kl, **kd):
     """Run shell command and return a deferred, which will errback
     with UnexpectedExitCode if the exit code is not expected_return_code
     (which defualts to 0)"""
+    verbose = kd.pop('verbose', False)
     expected_return_code = kd.pop('expected_return_code', 0)
     deferred = getProcessOutputAndValue(*kl, **kd)
-    
+    if verbose:
+        print '+',kl, kd
     def check((out, err, exitcode)):
         """Verify exit code"""
+        if verbose:
+            print 'exit code', exitcode, 'from', kl, kd
         if exitcode != expected_return_code:
             raise UnexpectedExitCode(kl, kd, out, err, exitcode, 
                                      expected_return_code)
