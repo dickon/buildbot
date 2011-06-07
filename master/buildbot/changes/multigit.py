@@ -221,10 +221,9 @@ def scan_for_repositories(repositories_directory):
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
-    def __init__(self, master, repositories_directory, tagFormat='%(branch)s-%(index)d',
+    def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
         self.repositories_directory = repositories_directory
-        self.master = master
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
