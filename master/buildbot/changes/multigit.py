@@ -17,7 +17,7 @@ repositories and passes tags up as the revisions we tag."""
 
 from twisted.internet.utils import getProcessOutputAndValue
 from time import strptime, mktime, time
-from twisted.internet.defer import DeferredList
+from twisted.internet.defer import DeferredList, succeed
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
@@ -222,12 +222,14 @@ class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
-                 ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60):
+                 ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
+                 autoFetch=False):
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.tagFormat = tagFormat
+        self.autoFetch = autoFetch
         self.repositories = scan_for_repositories(self.repositories_directory)
 
     def find_fresh_tag(self, branch='master'):
@@ -252,7 +254,14 @@ class MultiGit(PollingChangeSource):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
         self.repositories = scan_for_repositories(self.repositories_directory)
-        deferred = get_branch_list(self.repositories)
+        deferred = succeed(None)
+        def auto_fetch(_):
+            return failing_deferred_list(
+                [git(gitd, 'fetch') for gitd in self.repositories])
+        if self.autoFetch:
+            deferred.addCallback(auto_fetch)
+        deferred.addCallback(lambda _: get_branch_list(self.repositories))
+
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
             defl2 = []
