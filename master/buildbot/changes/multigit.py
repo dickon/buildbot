@@ -294,7 +294,7 @@ class MultiGit(PollingChangeSource):
             self.status = 'finished'
             self.lastFinish = time()
             return x
-        return deferred.addCallback(finish)
+        return deferred.addCallbacks(finish, finish)
     def create_tag(self, branch):
         """Create tag on branch"""
         deferred = self.find_fresh_tag(branch)
