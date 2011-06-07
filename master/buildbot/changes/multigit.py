@@ -269,7 +269,8 @@ class MultiGit(PollingChangeSource):
         tag_index = self.tagStartingIndex
         def call_find_ref(gitd):
             return lambda: find_ref(gitd, 'refs/tags/'+tag) 
-        deferred = sequencer([call_find_ref(gitd) for gitd in self.repositories])
+        deferred = self.for_each_repository(
+            lambda gitd: find_ref(gitd, 'refs/tags/'+tag))
         def check(hashes):
             """Check that tag did not exist in all repositories,
             or try a higher tag number"""
@@ -280,6 +281,12 @@ class MultiGit(PollingChangeSource):
         self.tagStartingIndex += 1
         return deferred.addCallback(check)
 
+    def for_each_repository(self, fn):
+        """Run fn on each repository"""
+        def go(gitd):
+            return lambda: fn(gitd)
+        return sequencer( [go(gitd) for gitd in self.repositories])
+
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
@@ -289,8 +296,7 @@ class MultiGit(PollingChangeSource):
         deferred = succeed(None)
         def auto_fetch(_):
             self.status = 'fetching'
-            return sequencer(
-                [git(gitd, 'fetch') for gitd in self.repositories])
+            return self.for_each_repository(lambda gitd: git(gitd, 'fetch'))
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
         def get_branches(_):
