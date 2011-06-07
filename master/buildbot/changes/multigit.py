@@ -233,6 +233,7 @@ class MultiGit(PollingChangeSource):
         self.repositories = scan_for_repositories(self.repositories_directory)
         self.status = 'idle'
         self.lastFinish = None
+        self.branches = {}
 
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
@@ -273,6 +274,7 @@ class MultiGit(PollingChangeSource):
             self.status = 'looking for untagged revisions'
             defl2 = []
             for repository, branch in repobranchlist:
+                self.branches.setdefault(branch, None)
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 subd.addCallback(annotate_list, branch=branch)
