@@ -311,3 +311,6 @@ class MultiGit(PollingChangeSource):
             return subd.addErrback(again)
         return deferred.addCallback(set_tag)
         
+    def describe(self):
+        return 'MultiGit looking for untagged revisions at %s' % (
+            self.repositories_directory)
