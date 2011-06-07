@@ -132,6 +132,8 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
     """Test multiple git repository polling"""
     def setUp(self):
         self.parent_directory = mkdtemp('.testgit')
+        with file(join(self.parent_directory,'foo'), 'w') as f:
+            f.write('ignore me\n')
         self.repos = [PopulatedRepository(),PopulatedRepository()]
         deferred = failing_deferred_list([repo.populatedRepositorySetUp(self.parent_directory, name) for 
                                           repo, name in zip(self.repos, ['alpha', 'beta'])])
