@@ -181,5 +181,8 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         def check(_):
             self.assertEqual(len(self.changes_added), 2)
         return deferred.addCallback(check)
-    def test_describe(self):
+    def test_describe_has_directory(self):
         self.failUnless(self.parent_directory in self.multigit.describe())
+    def test_describe_never_ran(self):
+        self.failUnless('unrun' in self.multigit.describe())
+
