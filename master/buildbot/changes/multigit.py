@@ -17,7 +17,7 @@ repositories and passes tags up as the revisions we tag."""
 
 from twisted.internet.utils import getProcessOutputAndValue
 from time import strptime, mktime, time
-from twisted.internet.defer import DeferredList, succeed, Deferred
+from twisted.internet.defer import DeferredList, succeed, Deferred, maybeDeferred
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
@@ -70,7 +70,8 @@ class ListProcessor:
     def tick(self, n=2):
         todo = self.defl[:n]
         self.defl = self.defl[n:]
-        todo_in = [x if isinstance(x, Deferred) else x() for x in todo]
+        todo_in = [x if isinstance(x, Deferred) else 
+                   maybeDeferred(x) for x in todo]
         deferred = DeferredList(todo_in, **self.kd)
         def record(me):
             self.out += me
