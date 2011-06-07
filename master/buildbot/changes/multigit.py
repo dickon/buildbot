@@ -234,6 +234,7 @@ class MultiGit(PollingChangeSource):
         self.status = 'idle'
         self.lastFinish = None
         self.branches = {}
+        self.repositories = []
 
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
@@ -257,7 +258,8 @@ class MultiGit(PollingChangeSource):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
         self.pollRunning = True
-        self.repositories = scan_for_repositories(self.repositories_directory)
+        self.repositories = list(sorted(scan_for_repositories(
+                    self.repositories_directory)))
         deferred = succeed(None)
         def auto_fetch(_):
             self.status = 'fetching'
@@ -326,7 +328,9 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallback(set_tag)
         
     def describe(self):
-        return 'MultiGit on %s %s %s' % (
+        return 'MultiGit on %s %s %s. Branches %r. Repositories <B>%r</b>' % (
             self.repositories_directory, self.status, 
                 'unrun' if self.lastFinish is None else 
-                '%d seconds ago' % (time() - self.lastFinish))
+                '%d seconds ago' % (time() - self.lastFinish), self.branches,
+            [x[len(self.repositories_directory)+1:] for x in self.repositories])
+    
