@@ -204,8 +204,9 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     format data and the previous tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
     prev = tag_format % dict(format_data, index=index+offset)
-    deferred = sequencer(
-        [git(gitd, 'log', prev+'..'+tag) for gitd in repositories])
+    def do_log(gitd):
+        return lambda: git(gitd, 'log', prev+'..'+tag)
+    deferred = sequencer([do_log(gitd) for gitd in repositories])
     def annotate(textlist):
         return 'Differences between %s and %s:\n%s' % (
             prev, tag, reduce(str.__add__, textlist))
