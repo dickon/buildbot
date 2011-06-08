@@ -218,10 +218,8 @@ def assign_revisions_to_branches(revisions, gitd):
             subd.addCallback(linesplitdropsplit)
             def check_parent(out):
                 if out:
-                    print rev, 'is reachable from', branch
                     return [dict(rev, branch=branch)]
                 else:
-                    print rev, 'is not reachable from', branch, 'on', gitd
                     return []
             return subd.addCallback(check_parent)    
         return deferred.addCallback(check_match)
@@ -332,11 +330,8 @@ def show(x, message):
 def described_untagged_revisions(gitd):
     deferred = untagged_revisions(gitd, '--branches') # that might be a better default
     deferred.addCallback(flatten1)
-    deferred.addCallback(show, 'untagged revisions in '+gitd)
     deferred.addCallback(get_metadata_for_revisions, gitd)
-    deferred.addCallback(show, 'untagged revisions with metadata in '+gitd)
-    deferred.addCallback(assign_revisions_to_branches, gitd)
-    return deferred.addCallback(show, 'untagged revisions on branches in '+gitd)
+    return deferred.addCallback(assign_revisions_to_branches, gitd)
 
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
@@ -396,8 +391,6 @@ class MultiGit(PollingChangeSource):
 
     def determine_tags(self, newrevs):
         """Figure out if a tag is warranted for each branch"""
-        print 'determinte tags for'
-        pprint(newrevs)
         latest = time() - self.ageRequirement
         branches = set()
         for rev in newrevs:
