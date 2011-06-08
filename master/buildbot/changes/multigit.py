@@ -21,7 +21,7 @@ from twisted.internet.defer import DeferredList, succeed, Deferred, maybeDeferre
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
-from os.path import join, isdir, isfile
+from os.path import join, isdir, isfile, split
 from os import listdir
 from re import match
 
@@ -342,7 +342,10 @@ class MultiGit(PollingChangeSource):
                 """Look for untagged revisions on branch of repository"""
                 self.status = 'looking for untagged revisions (at %s)'  % \
                     (repository)
-                self.branches.setdefault(branch, None)
+                if self.newBranchCallback and branch not in self.branches:
+                    self.newBranchCallback( branch, repository)
+                self.branches.setdefault(branch, set())
+                self.branches[branch].add( split(repository)[1])
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 return subd.addCallback(annotate_list, branch=branch)
@@ -355,11 +358,6 @@ class MultiGit(PollingChangeSource):
             for rev in reduce( list.__add__, newrevs) if newrevs else []:
                 if self.newRevisionCallback:
                     self.newRevisionCallback(rev)
-                current =self.branches.get(rev['branch'])
-                if current is None or current['commit_time'] < rev['commit_time']:
-                    if self.newTagCallback and rev['branch'] not in self.branches:
-                        self.newTagCallback( rev['branch'], rev)
-                    self.branches[rev['branch']] = current
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
             return sequencer(list(sorted(branches)), callback=self.create_tag)
