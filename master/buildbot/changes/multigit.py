@@ -386,8 +386,11 @@ class MultiGit(PollingChangeSource):
             def store_change(description):
                 """Declare change to upstream"""
                 self.tags[branch] = tag
+                authors = ', '.join([line.split()[-1] for line in description.split('\n') if 
+                           line.startswith('Author')])
                 extras = {} if description is None else {'comments':description}
-                return self.master.addChange(revision = tag, **extras)
+                return self.master.addChange(revision = tag, author=authors,
+                                             **extras)
             subd.addCallback(store_change)
             def again(failure):
                 """tag again on failure"""
