@@ -232,7 +232,7 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     def git_supress(*args):
         deferred = git(*args)
         return deferred.addErrback(silence)
-    deferred = sequencer(repositories, callback=git, 
+    deferred = sequencer(repositories, callback=git_supress, 
                          arguments=['log', prev+'..'+tag])
     def annotate(textlist):
         return 'Differences between %s and %s:\n%s' % (
