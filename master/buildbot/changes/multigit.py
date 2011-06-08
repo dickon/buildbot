@@ -184,7 +184,52 @@ def untagged_revisions(gitd, branch='master'):
 
 def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
-    return sequencer(revisions, callback=lambda r: get_metadata(gitd, r[0]))
+    return sequencer(revisions, callback=lambda r: get_metadata(gitd, r))
+
+
+def flatten1(x):
+    """Remove one level of list strcture from x"""
+    y = []
+    for i in x:
+        y.extend(i)
+    return y
+
+def assign_revisions_to_branches(revisions, gitd):
+    """Return  revisions annoated with a branch they are 
+    reachable from. 
+
+    If members of revisions are not reachable
+    from branches they are omitted from the output.
+
+    If members of reevisions are reachable from
+    more than one branch tthey show up in the output
+    once per branch.
+
+    The implementation is O( |branches| * |revisions|), sadly.
+    """
+    out = []
+    deferred = git(gitd, 'branch').addCallback(linesplitdropsplit)
+    def reachable( (rev, branch) ):
+        deferred = find_ref(gitd, branch)
+        def check_match(headrev):
+            if headrev == rev['revision']:
+                return [dict(rev, branch=branch)]
+            subd = git(gitd, 'rev-list', '-n1', branch, '^'+rev['revision'])
+            subd.addCallback(linesplitdropsplit)
+            def check_parent(out):
+                if out:
+                    print rev, 'is reachable from', branch
+                    return [dict(rev, branch=branch)]
+                else:
+                    print rev, 'is not reachable from', branch, 'on', gitd
+                    return []
+            return subd.addCallback(check_parent)    
+        return deferred.addCallback(check_match)
+    def assign(branchstuff):
+        branches = [x[-1] for x in branchstuff]
+        combos = [ (rev, branch) for rev in revisions for branch in branches ]
+        return sequencer( combos, callback=reachable)
+    return deferred.addCallback(assign).addCallback(flatten1)
 
 def get_branch_list(repositories, ignoreBranchesRegexp=None):
     """Return a deferred which gives (repository path, branch_name)* 
@@ -276,6 +321,23 @@ def scan_for_repositories(repositories_directory, ignoreRepositoriesRegexp=None)
 def safe_branch(x):
     return x.replace(' ', '_').replace('.', '_')
 
+def show(x, message):
+    print
+    print
+    print message
+    pprint(x)
+    print
+    return x
+
+def described_untagged_revisions(gitd):
+    deferred = untagged_revisions(gitd, '--branches') # that might be a better default
+    deferred.addCallback(flatten1)
+    deferred.addCallback(show, 'untagged revisions in '+gitd)
+    deferred.addCallback(get_metadata_for_revisions, gitd)
+    deferred.addCallback(show, 'untagged revisions with metadata in '+gitd)
+    deferred.addCallback(assign_revisions_to_branches, gitd)
+    return deferred.addCallback(show, 'untagged revisions on branches in '+gitd)
+
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
@@ -334,6 +396,8 @@ class MultiGit(PollingChangeSource):
 
     def determine_tags(self, newrevs):
         """Figure out if a tag is warranted for each branch"""
+        print 'determinte tags for'
+        pprint(newrevs)
         latest = time() - self.ageRequirement
         branches = set()
         for rev in newrevs:
@@ -357,23 +421,9 @@ class MultiGit(PollingChangeSource):
                              arguments=['fetch'])
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
-        def get_branches(_):
-            self.status = 'examining branches'
-            return get_branch_list(self.repositories, self.ignoreBranchesRegexp)
-        deferred.addCallback(get_branches)
-        def look_for_untagged(repobranchlist):
-            """Find untagged revisions"""
-            self.status = 'looking for untagged revisions'
-            def look_at_branch( (repository, branch)):
-                """Look for untagged revisions on branch of repository"""
-                self.status = 'looking for untagged revisions (at %s)'  % \
-                    (repository)
-                subd = untagged_revisions(repository, branch)
-                subd.addCallback(get_metadata_for_revisions, repository)
-                return subd.addCallback(annotate_list, branch=branch)
-            return sequencer(repobranchlist, callback=look_at_branch)
-        deferred.addCallback(look_for_untagged)
-        deferred.addCallback(lambda x:reduce( list.__add__, x) if x else x)
+        deferred.addCallback(lambda _: sequencer(self.repositories, 
+                                                 callback=described_untagged_revisions))
+        deferred.addCallback(flatten1)
         deferred.addCallback(self.determine_tags)
         def finish(result):
             """Report errors, update status record"""
@@ -440,6 +490,7 @@ class MultiGit(PollingChangeSource):
     def notify(self, gitd, branch):
         """Notify that a new commit with revision appeared on branch of gitd"""
         deferred = untagged_revisions(gitd, branch)
+        deferred.addCallback(lambda y: [x[0] for x in y])
         deferred.addCallback(get_metadata_for_revisions, gitd)
         deferred.addCallback(annotate_list, branch=branch)        
         return deferred.addCallback(self.determine_tags)
