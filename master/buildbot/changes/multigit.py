@@ -282,12 +282,15 @@ class MultiGit(PollingChangeSource):
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
                  autoFetch=False, ignoreRepositoriesRegexp=None, newRevisionCallback=None,
+                 newTagCallback = None, newBranchCallback = None, 
                  ignoreBranchesRegexp=None):
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.newRevisionCallback = newRevisionCallback
+        self.newBranchCallback = newBranchCallback
+        self.newTagCallback = newTagCallback
         self.tagFormat = tagFormat
         self.autoFetch = autoFetch
         self.ignoreBranchesRegexp = ignoreBranchesRegexp
@@ -354,6 +357,8 @@ class MultiGit(PollingChangeSource):
                     self.newRevisionCallback(rev)
                 current =self.branches.get(rev['branch'])
                 if current is None or current['commit_time'] < rev['commit_time']:
+                    if self.newTagCallback and rev['branch'] not in self.branches:
+                        self.newTagCallback( rev['branch'], rev)
                     self.branches[rev['branch']] = current
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
@@ -390,6 +395,8 @@ class MultiGit(PollingChangeSource):
             def store_change(description):
                 """Declare change to upstream"""
                 self.tags[branch] = tag
+                if self.newTagCallback:
+                    self.newTagCallback( (tag, branch))
                 authors = ', '.join([line.split()[-1] for line in description.split('\n') if 
                            line.startswith('Author')])
                 extras = {} if description is None else {'comments':description}
