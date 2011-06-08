@@ -190,3 +190,13 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         def check(_):
             self.failUnless('master' in self.multigit.branches)
         return deferred.addCallback(check)
+    def test_new_revision_callback(self):
+        seq = []
+        def add(*l, **d):
+            seq.append( (l, d))
+        self.multigit.newRevisionCallback = add
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'fish')
+        deferred.addCallback(lambda _: self.multigit.poll())
+        def check(_):
+            self.assertEquals(len(seq), 1)
+        deferred.addCallback(check)
