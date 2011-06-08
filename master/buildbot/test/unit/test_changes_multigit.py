@@ -204,8 +204,5 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
     def test_trigger(self):
         deferred = self.multigit.poll()
         deferred.addCallback(lambda _: add_commit(self.repos[0].workd, 'a', 'b', 'fish'))
-        deferred.addCallback(lambda _: find_ref(self.repos[0].workd, 'refs/heads/master'))
-        deferred.addCallback(lambda rev: self.multigit.notify(self.repos[0].workd, 'master', rev))
-        def check(stuff):
-            self.assertEqual(len(self.changes_added), 1)
-        return deferred.addCallback(lambda _: check)
+        deferred.addCallback(lambda _: self.multigit.notify(self.repos[0].workd, 'master'))
+        return deferred.addCallback(lambda _: self.assertEquals(len(self.changes_added), 1))

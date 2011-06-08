@@ -318,6 +318,17 @@ class MultiGit(PollingChangeSource):
         self.tagStartingIndex += 1
         return deferred.addCallback(check)
 
+    def determine_tags(self, newrevs):
+        """Figure out if a tag is warranted for each branch"""
+        latest = time() - self.ageRequirement
+        branches = set()
+        for rev in newrevs:
+            if self.newRevisionCallback:
+                self.newRevisionCallback(rev)
+            if rev['commit_time'] <= latest:
+                branches.add(rev['branch'])
+        return sequencer(list(sorted(branches)), callback=self.create_tag)
+
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
@@ -352,17 +363,8 @@ class MultiGit(PollingChangeSource):
                 return subd.addCallback(annotate_list, branch=branch)
             return sequencer(repobranchlist, callback=look_at_branch)
         deferred.addCallback(look_for_untagged)
-        def determine_tags(newrevs):
-            """Figure out if a tag is warranted for each branch"""
-            latest = time() - self.ageRequirement
-            branches = set()
-            for rev in reduce( list.__add__, newrevs) if newrevs else []:
-                if self.newRevisionCallback:
-                    self.newRevisionCallback(rev)
-                if rev['commit_time'] <= latest:
-                    branches.add(rev['branch'])
-            return sequencer(list(sorted(branches)), callback=self.create_tag)
-        deferred.addCallback(determine_tags)
+        deferred.addCallback(lambda x:reduce( list.__add__, x) if x else x)
+        deferred.addCallback(self.determine_tags)
         def finish(result):
             """Report errors, update status record"""
             self.status = 'finished in %.3fs' % (time()-self.pollStart)
@@ -426,3 +428,10 @@ class MultiGit(PollingChangeSource):
                 [x[len(self.repositories_directory)+1:] for 
                  x in self.repositories]))
     
+    def notify(self, gitd, branch):
+        """Notify that a new commit with revision appeared on branch of gitd"""
+        deferred = untagged_revisions(gitd, branch)
+        deferred.addCallback(get_metadata_for_revisions, gitd)
+        deferred.addCallback(annotate_list, branch=branch)        
+        return deferred.addCallback(self.determine_tags)
+        
