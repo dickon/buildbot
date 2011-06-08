@@ -325,6 +325,8 @@ class MultiGit(PollingChangeSource):
             self.status = 'looking for untagged revisions'
             def look_at_branch( (repository, branch)):
                 """Look for untagged revisions on branch of repository"""
+                self.status = 'looking for untagged revisions (at %s)'  % \
+                    (repository)
                 self.branches.setdefault(branch, None)
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
