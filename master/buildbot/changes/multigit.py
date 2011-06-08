@@ -322,12 +322,13 @@ class MultiGit(PollingChangeSource):
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
             self.status = 'looking for untagged revisions'
-            def cb( (repository, branch)):
+            def look_at_branch( (repository, branch)):
+                """Look for untagged revisions on branch of repository"""
                 self.branches.setdefault(branch, None)
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 return subd.addCallback(annotate_list, branch=branch)
-            return sequencer(repobranchlist, callback=cb)
+            return sequencer(repobranchlist, callback=look_at_branch)
         deferred.addCallback(look_for_untagged)
         def determine_tags(newrevs):
             """Figure out if a tag is warranted for each branch"""
@@ -339,14 +340,16 @@ class MultiGit(PollingChangeSource):
             self.status = 'creating tags'
             return sequencer(list(sorted(branches)), callback=self.create_tag)
         deferred.addCallback(determine_tags)
-        def finish(x):
-            self.status = 'finished '+repr(x).replace('<', '&lt;')+' after '+self.status
+        def finish(result):
+            """Report errors, update status record"""
+            self.status = 'finished '+repr(result).replace('<', '&lt;')+\
+                ' after '+self.status
             try:
-                x.printTraceback(stdout)
+                result.printTraceback(stdout)
             except AttributeError:
                 pass
             self.lastFinish = time()
-            return x
+            return result
         return deferred.addCallbacks(finish, finish)
     def create_tag(self, branch):
         """Create tag on branch"""
@@ -359,8 +362,9 @@ class MultiGit(PollingChangeSource):
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
-                return describe_tag(self.tagFormat, {'branch':safe_branch(branch)}, 
-                                    tag_index, self.repositories)
+                return describe_tag(
+                    self.tagFormat, {'branch':safe_branch(branch)}, 
+                    tag_index, self.repositories)
             subd.addCallback(tag_done)
             def store_change(description):
                 """Declare change to upstream"""
@@ -383,5 +387,6 @@ class MultiGit(PollingChangeSource):
                 'unrun' if self.lastFinish is None else 
                 '%d seconds ago' % (time() - self.lastFinish), self.branches,
             ', '.join(
-                [x[len(self.repositories_directory)+1:] for x in self.repositories]))
+                [x[len(self.repositories_directory)+1:] for 
+                 x in self.repositories]))
     
