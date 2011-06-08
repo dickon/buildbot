@@ -211,17 +211,12 @@ def assign_revisions_to_branches(revisions, gitd, ignoreBranchesRegexp):
     out = []
     deferred = git(gitd, 'branch').addCallback(linesplitdropsplit)
     def reachable( (rev, branch) ):
-        deferred = find_ref(gitd, branch)
-        def check_match(headrev):
-            if headrev == rev['revision']:
+        deferred = git(gitd, 'rev-list', branch).addCallback(linesplitdropsplit)
+        def check_match(revs):
+            if [rev['revision']] in revs:
                 return [dict(rev, branch=branch)]
-            subd = git(gitd, 'rev-list', '-n1', branch, '^'+rev['revision'])
-            subd.addCallback(linesplitdropsplit)
-            def check_parent(out):
-                if out:
-                    return [dict(rev, branch=branch)]
-                else:
-                    return []
+            else:
+                return []
             return subd.addCallback(check_parent)    
         return deferred.addCallback(check_match)
     def assign(branchstuff):
