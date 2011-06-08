@@ -281,12 +281,13 @@ class MultiGit(PollingChangeSource):
     in some."""
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
-                 autoFetch=False, ignoreRepositoriesRegexp=None,
+                 autoFetch=False, ignoreRepositoriesRegexp=None, newRevisionCallback=None,
                  ignoreBranchesRegexp=None):
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
+        self.newRevisionCallback = newRevisionCallback
         self.tagFormat = tagFormat
         self.autoFetch = autoFetch
         self.ignoreBranchesRegexp = ignoreBranchesRegexp
@@ -349,6 +350,8 @@ class MultiGit(PollingChangeSource):
             latest = time() - self.ageRequirement
             branches = set()
             for rev in reduce( list.__add__, newrevs) if newrevs else []:
+                if self.newRevisionCallback:
+                    self.newRevisionCallback(rev)
                 current =self.branches.get(rev['branch'])
                 if current is None or current['commit_time'] < rev['commit_time']:
                     self.branches[rev['branch']] = current

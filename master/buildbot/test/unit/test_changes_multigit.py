@@ -199,4 +199,5 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         deferred.addCallback(lambda _: self.multigit.poll())
         def check(_):
             self.assertEquals(len(seq), 1)
-        deferred.addCallback(check)
+            self.failUnless('fish' in repr(seq))
+        return deferred.addCallback(check)
