@@ -335,6 +335,9 @@ class MultiGit(PollingChangeSource):
             latest = time() - self.ageRequirement
             branches = set()
             for rev in reduce( list.__add__, newrevs) if newrevs else []:
+                current =self.branches.get(rev['branch'])
+                if current is None or current['commit_time'] < rev['commit_time']:
+                    self.branches[rev['branch']] = current
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
             self.status = 'creating tags'
