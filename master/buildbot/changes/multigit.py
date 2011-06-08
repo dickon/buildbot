@@ -321,6 +321,7 @@ class MultiGit(PollingChangeSource):
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
+        self.pollStart = time()
         self.pollRunning = True
         self.repositories = list(sorted(scan_for_repositories(
                     self.repositories_directory, self.ignoreRepositoriesRegexp)))
@@ -364,8 +365,7 @@ class MultiGit(PollingChangeSource):
         deferred.addCallback(determine_tags)
         def finish(result):
             """Report errors, update status record"""
-            self.status = 'finished '+repr(result).replace('<', '&lt;')+\
-                ' after '+self.status
+            self.status = 'finished in %.3fs' % (time()-self.pollStart)
             try:
                 result.printTraceback(stdout)
             except AttributeError:
