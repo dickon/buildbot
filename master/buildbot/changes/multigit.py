@@ -17,13 +17,14 @@ repositories and passes tags up as the revisions we tag."""
 
 from twisted.internet.utils import getProcessOutputAndValue
 from time import strptime, mktime, time
-from twisted.internet.defer import DeferredList, succeed, Deferred, maybeDeferred
+from twisted.internet.defer import DeferredList, succeed, Deferred, maybeDeferred, DeferredLock
 from pprint import pprint
 from sys import stdout
 from buildbot.changes.base import PollingChangeSource
 from os.path import join, isdir, isfile, split
 from os import listdir
 from re import match
+from buildbot.util import deferredLocked
 
 class UnexpectedExitCode(Exception):
     """A subprocess exited with an unexpected exit code"""
@@ -194,7 +195,7 @@ def flatten1(x):
         y.extend(i)
     return y
 
-def assign_revisions_to_branches(revisions, gitd):
+def assign_revisions_to_branches(revisions, gitd, ignoreBranchesRegexp):
     """Return  revisions annoated with a branch they are 
     reachable from. 
 
@@ -224,7 +225,8 @@ def assign_revisions_to_branches(revisions, gitd):
             return subd.addCallback(check_parent)    
         return deferred.addCallback(check_match)
     def assign(branchstuff):
-        branches = [x[-1] for x in branchstuff]
+        branches = [x[-1] for x in branchstuff if ignoreBranchesRegexp is None or
+                    not match(ignoreBranchesRegexp, x[-1])]
         combos = [ (rev, branch) for rev in revisions for branch in branches ]
         return sequencer( combos, callback=reachable)
     return deferred.addCallback(assign).addCallback(flatten1)
@@ -327,11 +329,12 @@ def show(x, message):
     print
     return x
 
-def described_untagged_revisions(gitd):
+def described_untagged_revisions(gitd, ignoreBranchesRegexp):
     deferred = untagged_revisions(gitd, '--branches') # that might be a better default
     deferred.addCallback(flatten1)
     deferred.addCallback(get_metadata_for_revisions, gitd)
-    return deferred.addCallback(assign_revisions_to_branches, gitd)
+    return deferred.addCallback(assign_revisions_to_branches, gitd, 
+                                ignoreBranchesRegexp)
 
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
@@ -340,8 +343,9 @@ class MultiGit(PollingChangeSource):
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
                  autoFetch=False, newRevisionCallback=None, statusCallback=None,
                  newTagCallback = None, 
+                 nonScanBranchesRegexp=None,
                  ignoreBranchesRegexp=None, ignoreRepositoriesRegexp=None):
-        """Look for git repositories in repositories_directory every pollInterval seconds.
+        """Look at git repositories in repositories_directory every pollInterval seconds.
 
         Create tags in tagFormat when there are revisions on a branch
         whcih are at least ageRequirement seconds old. tagFormat is a string format
@@ -351,10 +355,13 @@ class MultiGit(PollingChangeSource):
         If autoFetch then run a fetch in each repository first.
 
         Ignore repositories in directory names which match ignoreRepositoriesRegexp,
-        and ignore branches with names that match ignoreBranchesRegexp.
+        and ignore branches with names that match ignoreBranchesRegexp. Tag 
+        but do not scan for branches matching nonScanBranchesRegexp
+
 
         Invoke newRevisionCallback with a dictionary describing a new untagged revision.
         Invoke newTagCallback with tag and branch names when we create a tag.
+
 
         Occasionaly invokes statusCallback with a trace message as arguments.
         """
@@ -369,11 +376,14 @@ class MultiGit(PollingChangeSource):
         self.autoFetch = autoFetch
         self.ignoreBranchesRegexp = ignoreBranchesRegexp
         self.ignoreRepositoriesRegexp = ignoreRepositoriesRegexp
+        self.nonScanBranchesRegexp = nonScanBranchesRegexp
         self.repositories = scan_for_repositories(self.repositories_directory)
         self.status('idle')
         self.lastFinish = None
         self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
+        self.pollLock = DeferredLock()
+
     def status(self, message):
         self.lastStatus = message
         if self.statusCallback: 
@@ -397,22 +407,33 @@ class MultiGit(PollingChangeSource):
 
     def determine_tags(self, newrevs):
         """Figure out if a tag is warranted for each branch"""
+        self.status('checking %d revisions for being more than %ds old' %(
+                len(newrevs), self.ageRequirement))
         latest = time() - self.ageRequirement
         branches = set()
         for rev in newrevs:
             if self.newRevisionCallback:
                 self.newRevisionCallback(rev)
             if rev['commit_time'] <= latest:
+                if rev['branch'] not in branches:
+                    self.status('will tag due to %r' % (rev))
                 branches.add(rev['branch'])
         return sequencer(list(sorted(branches)), callback=self.create_tag)
 
+    @deferredLocked('pollLock')
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
         self.pollStart = time()
         self.pollRunning = True
+        self.status('start polling')
         self.repositories = list(sorted(scan_for_repositories(
                     self.repositories_directory, self.ignoreRepositoriesRegexp)))
+        self.scan_repositories = [
+            b for b in self.repositories if
+            self.nonScanBranchesRegexp is None or
+            not match(self.nonScanBranchesRegexp, split(b)[1])]
+        self.status('examining %d repositories'  %(len(self.scan_repositories)))
         deferred = succeed(None)
         def auto_fetch(_):
             self.status('fetching')
@@ -420,8 +441,10 @@ class MultiGit(PollingChangeSource):
                              arguments=['fetch'])
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
-        deferred.addCallback(lambda _: sequencer(self.repositories, 
-                                                 callback=described_untagged_revisions))
+        deferred.addCallback(lambda _: 
+                             sequencer(self.scan_repositories, 
+                                       callback=described_untagged_revisions,
+                                       arguments=[self.ignoreBranchesRegexp]))
         deferred.addCallback(flatten1)
         deferred.addCallback(self.determine_tags)
         def finish(result):
