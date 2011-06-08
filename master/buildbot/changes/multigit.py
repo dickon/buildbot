@@ -23,6 +23,7 @@ from sys import stdout
 from buildbot.changes.base import PollingChangeSource
 from os.path import join, isdir, isfile
 from os import listdir
+from re import match
 
 class UnexpectedExitCode(Exception):
     """A subprocess exited with an unexpected exit code"""
@@ -185,14 +186,20 @@ def get_metadata_for_revisions(revisions, gitd):
     """Convert list of revisions to list of revision descriptions"""
     return sequencer(revisions, callback=lambda r: get_metadata(gitd, r[0]))
 
-def get_branch_list(repositories):
+def get_branch_list(repositories, ignoreBranchesRegexp=None):
     """Return a deferred which gives (repository path, branch_name)* 
     across repositories"""
     def get_list_for_repo(repository):
         subd = git(repository, 'branch').addCallback(linesplitdropsplit)
         def convert(seq, repository):
             """Turn [(_,x)] -> [(repository, x[-1])]"""
-            return [ (repository, brl[-1]) for brl in seq]
+            out = []
+            for brl in seq:
+                branch = brl[-1]
+                if ignoreBranchesRegexp and match(ignoreBranchesRegexp, branch):
+                    continue
+                out.append ( (repository, branch))
+            return out
         return subd.addCallback(convert, repository)
     deferred = sequencer(repositories, callback=get_list_for_repo)
     return deferred.addCallback(lambda listlist: reduce(list.__add__, listlist, []))
@@ -249,11 +256,13 @@ def tag_branch_if_exists(gitd, tag, branch):
     return deferred.addCallback(check)
 
 
-def scan_for_repositories(repositories_directory):
+def scan_for_repositories(repositories_directory, ignoreRepositoriesRegexp=None):
     """Scan for git directories directly within repositories_directory and
     return a list of full path names"""
     seq = []
     for item in listdir(repositories_directory):
+        if ignoreRepositoriesRegexp and match(ignoreRepositoriesRegexp, item):
+            continue
         pathname = join(repositories_directory, item)
         if not isdir(pathname): 
             continue
@@ -272,20 +281,22 @@ class MultiGit(PollingChangeSource):
     in some."""
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
-                 autoFetch=False):
+                 autoFetch=False, ignoreRepositoriesRegexp=None,
+                 ignoreBranchesRegexp=None):
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.tagFormat = tagFormat
         self.autoFetch = autoFetch
+        self.ignoreBranchesRegexp = ignoreBranchesRegexp
+        self.ignoreRepositoriesRegexp = ignoreRepositoriesRegexp
         self.repositories = scan_for_repositories(self.repositories_directory)
         self.status = 'idle'
         self.lastFinish = None
         self.branches = {} # branch name -> latest revision on that branch
         self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
-
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
         tag = self.tagFormat % ( {'branch': safe_branch(branch),
@@ -308,7 +319,7 @@ class MultiGit(PollingChangeSource):
         and tag and record them."""
         self.pollRunning = True
         self.repositories = list(sorted(scan_for_repositories(
-                    self.repositories_directory)))
+                    self.repositories_directory, self.ignoreRepositoriesRegexp)))
         deferred = succeed(None)
         def auto_fetch(_):
             self.status = 'fetching'
@@ -318,7 +329,7 @@ class MultiGit(PollingChangeSource):
             deferred.addCallback(auto_fetch)
         def get_branches(_):
             self.status = 'examining branches'
-            return get_branch_list(self.repositories)
+            return get_branch_list(self.repositories, self.ignoreBranchesRegexp)
         deferred.addCallback(get_branches)
         def look_for_untagged(repobranchlist):
             """Find untagged revisions"""
