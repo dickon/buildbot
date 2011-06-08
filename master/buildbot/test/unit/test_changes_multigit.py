@@ -185,11 +185,6 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
         self.failUnless(self.parent_directory in self.multigit.describe())
     def test_describe_never_ran(self):
         self.failUnless('unrun' in self.multigit.describe())
-    def test_poll_check_branches(self):
-        deferred = self.multigit.poll()
-        def check(_):
-            self.failUnless('master' in self.multigit.branches)
-        return deferred.addCallback(check)
     def test_new_revision_callback(self):
         seq = []
         def add(*l, **d):

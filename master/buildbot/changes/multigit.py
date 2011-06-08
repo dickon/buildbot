@@ -282,7 +282,7 @@ class MultiGit(PollingChangeSource):
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
                  autoFetch=False, newRevisionCallback=None,
-                 newTagCallback = None, newBranchCallback = None, 
+                 newTagCallback = None, 
                  ignoreBranchesRegexp=None, ignoreRepositoriesRegexp=None):
         """Look for git repositories in repositories_directory every pollInterval seconds.
 
@@ -299,16 +299,12 @@ class MultiGit(PollingChangeSource):
         Invoke newRevisionCallback with a dictionary describing a new untagged revision.
         
         Invoke newTagCallback with tag and branch names when we create a tag.
-
-        Invoke newBranchCallback with branch name and a repository that has the branch when
-        we find a new branch
         """
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
         self.newRevisionCallback = newRevisionCallback
-        self.newBranchCallback = newBranchCallback
         self.newTagCallback = newTagCallback
         self.tagFormat = tagFormat
         self.autoFetch = autoFetch
@@ -317,7 +313,6 @@ class MultiGit(PollingChangeSource):
         self.repositories = scan_for_repositories(self.repositories_directory)
         self.status = 'idle'
         self.lastFinish = None
-        self.branches = {} # branch name -> latest revision on that branch
         self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
     def find_fresh_tag(self, branch='master'):
@@ -373,10 +368,6 @@ class MultiGit(PollingChangeSource):
                 """Look for untagged revisions on branch of repository"""
                 self.status = 'looking for untagged revisions (at %s)'  % \
                     (repository)
-                if self.newBranchCallback and branch not in self.branches:
-                    self.newBranchCallback( branch, repository)
-                self.branches.setdefault(branch, set())
-                self.branches[branch].add( split(repository)[1])
                 subd = untagged_revisions(repository, branch)
                 subd.addCallback(get_metadata_for_revisions, repository)
                 return subd.addCallback(annotate_list, branch=branch)
@@ -432,8 +423,7 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallback(set_tag)
         
     def describe(self):
-        return """MultiGit on %s %s %s%s%s.<h2>Tags I made</h2>%r 
-                  <h2>Branches</h2><div> %r</div>""" \
+        return 'MultiGit on %s %s %s%s%s.<h2>Tags I made</h2>%r ' \
             '<h2>Repositories</h2> <div>%s</div>' % (
             self.repositories_directory, self.status, 
             'unrun' if self.lastFinish is None else 
@@ -442,7 +432,7 @@ class MultiGit(PollingChangeSource):
             self.ignoreRepositoriesRegexp else '',
             ' ignoring branches matching '+self.ignoreBranchesRegexp if
             self.ignoreBranchesRegexp else '',
-            self.tags, self.branches,
+            self.tags, 
             ', '.join(
                 [x[len(self.repositories_directory)+1:] for 
                  x in self.repositories]))
