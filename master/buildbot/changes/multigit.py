@@ -338,7 +338,7 @@ class MultiGit(PollingChangeSource):
     in some."""
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
-                 autoFetch=False, newRevisionCallback=None,
+                 autoFetch=False, newRevisionCallback=None, statusCallback=None,
                  newTagCallback = None, 
                  ignoreBranchesRegexp=None, ignoreRepositoriesRegexp=None):
         """Look for git repositories in repositories_directory every pollInterval seconds.
@@ -354,8 +354,9 @@ class MultiGit(PollingChangeSource):
         and ignore branches with names that match ignoreBranchesRegexp.
 
         Invoke newRevisionCallback with a dictionary describing a new untagged revision.
-        
         Invoke newTagCallback with tag and branch names when we create a tag.
+
+        Occasionaly invokes statusCallback with a trace message as arguments.
         """
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
@@ -363,15 +364,20 @@ class MultiGit(PollingChangeSource):
         self.tagStartingIndex = tagStartingIndex
         self.newRevisionCallback = newRevisionCallback
         self.newTagCallback = newTagCallback
+        self.statusCallback = statusCallback
         self.tagFormat = tagFormat
         self.autoFetch = autoFetch
         self.ignoreBranchesRegexp = ignoreBranchesRegexp
         self.ignoreRepositoriesRegexp = ignoreRepositoriesRegexp
         self.repositories = scan_for_repositories(self.repositories_directory)
-        self.status = 'idle'
+        self.status('idle')
         self.lastFinish = None
         self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
+    def status(self, message):
+        self.lastStatus = message
+        if self.statusCallback: 
+            self.statusCallback(message)
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
         tag = self.tagFormat % ( {'branch': safe_branch(branch),
@@ -409,7 +415,7 @@ class MultiGit(PollingChangeSource):
                     self.repositories_directory, self.ignoreRepositoriesRegexp)))
         deferred = succeed(None)
         def auto_fetch(_):
-            self.status = 'fetching'
+            self.status('fetching')
             return sequencer(self.repositories, callback=git, 
                              arguments=['fetch'])
         if self.autoFetch:
@@ -420,7 +426,7 @@ class MultiGit(PollingChangeSource):
         deferred.addCallback(self.determine_tags)
         def finish(result):
             """Report errors, update status record"""
-            self.status = 'finished in %.3fs' % (time()-self.pollStart)
+            self.status('finished in %.3fs' % (time()-self.pollStart))
             try:
                 result.printTraceback(stdout)
             except AttributeError:
@@ -430,10 +436,10 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallbacks(finish, finish)
     def create_tag(self, branch):
         """Create tag on branch"""
-        self.status = 'creating tag for %s' % (branch)
+        self.status('creating tag for %s' % (branch))
         deferred = self.find_fresh_tag(branch)
         def set_tag((tag, tag_index)):
-            self.status = 'creating tag %s' % (tag)
+            self.status('creating tag %s' % (tag))
             """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
             subd = sequencer(self.repositories, callback=tag_branch_if_exists,
@@ -468,7 +474,7 @@ class MultiGit(PollingChangeSource):
     def describe(self):
         return 'MultiGit on %s %s %s%s%s.<h2>Tags I made</h2>%r ' \
             '<h2>Repositories</h2> <div>%s</div>' % (
-            self.repositories_directory, self.status, 
+            self.repositories_directory, self.lastStatus, 
             'unrun' if self.lastFinish is None else 
             '%d seconds ago' % (time() - self.lastFinish), 
             ' ignoring repositories matching '+self.ignoreRepositoriesRegexp if
