@@ -195,6 +195,19 @@ def flatten1(x):
         y.extend(i)
     return y
 
+
+def assign_revision_to_branches(revision, ignoreBranchesRegexp=None):
+    deferred = git(revision['gitd'], 'branch', '--contains', revision['revision'])
+    deferred.addCallback(linesplitdropsplit)
+    def annotate(branches):
+        out = []
+        for branchstuff in branches:
+            if ignoreBranchesRegexp and match(ignoreBranchesRegexp, gitd['branch']):
+                continue
+            out.append( dict(revision, branch=branchstuff[-1]))
+        return out
+    return deferred.addCallback(annotate)
+    
 def assign_revisions_to_branches(revisions, gitd, ignoreBranchesRegexp):
     """Return  revisions annoated with a branch they are 
     reachable from. 
@@ -202,29 +215,13 @@ def assign_revisions_to_branches(revisions, gitd, ignoreBranchesRegexp):
     If members of revisions are not reachable
     from branches they are omitted from the output.
 
-    If members of reevisions are reachable from
+    If members of revisions are reachable from
     more than one branch tthey show up in the output
     once per branch.
 
-    The implementation is O( |branches| * |revisions|), sadly.
     """
-    out = []
-    deferred = git(gitd, 'branch').addCallback(linesplitdropsplit)
-    def reachable( (rev, branch) ):
-        deferred = git(gitd, 'rev-list', branch).addCallback(linesplitdropsplit)
-        def check_match(revs):
-            if [rev['revision']] in revs:
-                return [dict(rev, branch=branch)]
-            else:
-                return []
-            return subd.addCallback(check_parent)    
-        return deferred.addCallback(check_match)
-    def assign(branchstuff):
-        branches = [x[-1] for x in branchstuff if ignoreBranchesRegexp is None or
-                    not match(ignoreBranchesRegexp, x[-1])]
-        combos = [ (rev, branch) for rev in revisions for branch in branches ]
-        return sequencer( combos, callback=reachable)
-    return deferred.addCallback(assign).addCallback(flatten1)
+    return sequencer(revisions, callback=assign_revision_to_branches, 
+                     arguments=[ignoreBranchesRegexp]).addCallback(flatten1)
 
 def get_branch_list(repositories, ignoreBranchesRegexp=None):
     """Return a deferred which gives (repository path, branch_name)* 
