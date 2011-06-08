@@ -394,7 +394,7 @@ class MultiGit(PollingChangeSource):
                 """Declare change to upstream"""
                 self.tags[branch] = tag
                 if self.newTagCallback:
-                    self.newTagCallback( (tag, branch))
+                    self.newTagCallback( tag, branch)
                 authors = ', '.join([line.split()[-1] for line in description.split('\n') if 
                            line.startswith('Author')])
                 extras = {} if description is None else {'comments':description}
