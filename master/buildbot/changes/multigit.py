@@ -354,7 +354,6 @@ class MultiGit(PollingChangeSource):
                     self.branches[rev['branch']] = current
                 if rev['commit_time'] <= latest:
                     branches.add(rev['branch'])
-            self.status = 'creating tags'
             return sequencer(list(sorted(branches)), callback=self.create_tag)
         deferred.addCallback(determine_tags)
         def finish(result):
@@ -370,8 +369,10 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallbacks(finish, finish)
     def create_tag(self, branch):
         """Create tag on branch"""
+        self.status = 'creating tag for %s' % (branch)
         deferred = self.find_fresh_tag(branch)
         def set_tag((tag, tag_index)):
+            self.status = 'creating tag %s' % (tag)
             """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
             subd = sequencer(self.repositories, callback=tag_branch_if_exists,
