@@ -202,7 +202,7 @@ def assign_revision_to_branches(revision, ignoreBranchesRegexp=None):
     def annotate(branches):
         out = []
         for branchstuff in branches:
-            if ignoreBranchesRegexp and match(ignoreBranchesRegexp, gitd['branch']):
+            if ignoreBranchesRegexp and match(ignoreBranchesRegexp, branchstuff[-1]):
                 continue
             out.append( dict(revision, branch=branchstuff[-1]))
         return out
