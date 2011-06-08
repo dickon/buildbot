@@ -281,9 +281,28 @@ class MultiGit(PollingChangeSource):
     in some."""
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
-                 autoFetch=False, ignoreRepositoriesRegexp=None, newRevisionCallback=None,
+                 autoFetch=False, newRevisionCallback=None,
                  newTagCallback = None, newBranchCallback = None, 
-                 ignoreBranchesRegexp=None):
+                 ignoreBranchesRegexp=None, ignoreRepositoriesRegexp=None):
+        """Look for git repositories in repositories_directory every pollInterval seconds.
+
+        Create tags in tagFormat when there are revisions on a branch
+        whcih are at least ageRequirement seconds old. tagFormat is a string format
+        which is interpolated with a  dictionary containing "branch" and "index" fields.
+        The index starts at tagStartingIndex.
+
+        If autoFetch then run a fetch in each repository first.
+
+        Ignore repositories in directory names which match ignoreRepositoriesRegexp,
+        and ignore branches with names that match ignoreBranchesRegexp.
+
+        Invoke newRevisionCallback with a dictionary describing a new untagged revision.
+        
+        Invoke newTagCallback with tag and branch names when we create a tag.
+
+        Invoke newBranchCallback with branch name and a repository that has the branch when
+        we find a new branch
+        """
         self.repositories_directory = repositories_directory
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
