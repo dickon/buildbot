@@ -282,7 +282,8 @@ class MultiGit(PollingChangeSource):
         self.repositories = scan_for_repositories(self.repositories_directory)
         self.status = 'idle'
         self.lastFinish = None
-        self.branches = {}
+        self.branches = {} # branch name -> latest revision on that branch
+        self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
 
     def find_fresh_tag(self, branch='master'):
@@ -371,6 +372,7 @@ class MultiGit(PollingChangeSource):
             subd.addCallback(tag_done)
             def store_change(description):
                 """Declare change to upstream"""
+                self.tags[branch] = tag
                 extras = {} if description is None else {'comments':description}
                 return self.master.addChange(revision = tag, **extras)
             subd.addCallback(store_change)
@@ -384,11 +386,13 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallback(set_tag)
         
     def describe(self):
-        return 'MultiGit on %s %s %s. <h2>Branches</h2><div> %r</div>' \
+        return """MultiGit on %s %s %s.<h2>Tags I made</h2>%r 
+                  <h2>Branches</h2><div> %r</div>""" \
             '<h2>Repositories</h2> <div>%s</div>' % (
             self.repositories_directory, self.status, 
-                'unrun' if self.lastFinish is None else 
-                '%d seconds ago' % (time() - self.lastFinish), self.branches,
+            'unrun' if self.lastFinish is None else 
+            '%d seconds ago' % (time() - self.lastFinish), 
+            self.tags, self.branches,
             ', '.join(
                 [x[len(self.repositories_directory)+1:] for 
                  x in self.repositories]))
