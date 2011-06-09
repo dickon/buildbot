@@ -273,19 +273,28 @@ def check_list(deferred_list_output):
         bad.raiseException()
     return out
 
-def find_most_recent_tag(repositories, tag_format, branch, index):
-    """Find the most recent tag at index or lower across repositories,
-    which has tag_format given format_data"""
-    tag = make_tag(tag_format, branch, index)
-    deferred = sequencer(repositories, callback=find_ref, 
-                         arguments=['refs/tags/'+tag])
-    def check(seq):
-        if seq:
-            return tag
-        if index > 0:
-            return find_most_recent_tag(repositories, tag_format, 
-                                        format_data, index-1)
-    return deferred.addCallback(check)
+def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
+    """Find the most recent tag matching tag_format across repositories"""
+    tag_exp = tag_format.replace('BRANCH', safe_branch(branch)).replace('INDEX', '([0-9]+)')
+    def find_tag(gitd):
+        subd = git(gitd, 'tag', '-l', tag_format.replace(
+                'BRANCH', safe_branch(branch)).replace('INDEX', '*'))
+        return subd.addCallback(linesplitdropsplit).addCallback(flatten1)
+    deferred = sequencer(repositories, callback=find_tag)
+    deferred.addCallback(flatten1)
+    deferred.addCallback(show, 'tags matching '+tag_exp)
+    def pick_latest(seq):
+        ordering = []
+        for tag in set(seq):
+            m = match(tag_exp, tag)
+            if m is None:
+                print 'WEIRD:',tag
+                continue
+            index = int(m.group(1))
+            ordering.append( (index, tag))
+        if len(ordering) <= abs(offset):
+            return sorted(ordering)[offset][1]
+    return deferred.addCallback(pick_latest)
 
 
 def silence(failure):
@@ -301,9 +310,12 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
     revisions between tag with index and format data and the previous
     tag on this branch, across repositories"""
     tag = make_tag(tag_format, branch, index)
-    deferred = find_most_recent_tag(repositories, tag_format, branch, index+offset)
+    deferred = find_most_recent_tag(repositories, tag_format, branch, -2)
     def get_all_revisions(prev):
+        print 'previous tag '+str(prev)
         def get_revisions(gitd):
+            if prev is None: 
+                return []
             deferred = git(gitd, 'rev-list', tag, '--not', prev)
             deferred.addCallback(linesplitdropsplit).addCallback(flatten1)
             deferred.addCallback(lambda revlist:
@@ -316,8 +328,7 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
             if revisions == []:
                 print 'no revisions from', prev, 'to', tag, 'offset', offset
                 if offset+index > 0:
-                    return describe_tag(tag_format, format_data, index, 
-                                        repositories, offset-1)
+                    return describe_tag(tag_format, branch, index, repositories, offset-1)
                 else:
                     return {}
             authorset = set( [rev['author'] for rev in revisions])
@@ -525,6 +536,7 @@ class MultiGit(PollingChangeSource):
                 tagdata['when'] = time()
                 if self.newTagCallback:
                     self.newTagCallback( tagdata )
+                print 'tag data',tagdata
                 return self.master.addChange(**tagdata)
             subd.addCallback(store_change)
             def again(failure):
