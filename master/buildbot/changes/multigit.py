@@ -183,7 +183,7 @@ def get_metadata(gitd, revision):
         subd.addCallback(linesplitdropsplit)
         def annotate(stuff):
             for line in stuff:
-                result['files'].append(split(gitd)[1]+' '.join(line[6:]))
+                result['files'].append(split(gitd)[1]+(' '.join(line[5:])))
             return result
         subd.addCallback(annotate)
         def first_cause(failure):
@@ -308,27 +308,30 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
             return deferred.addErrback(silence)    
         subd = sequencer(repositories, callback=get_revisions)
         subd.addCallback(flatten1)
+
+        def summarise(revisions):
+            if revisions == []:
+                print 'no revisions from', prev, 'to', tag, 'offset', offset
+                if offset+index > 0:
+                    return describe_tag(tag_format, format_data, index, 
+                                        repositories, offset-1)
+                else:
+                    return {}
+            authorset = set( [rev['author'] for rev in revisions])
+            order = sorted( [(rev['commit_time'], rev) for rev in revisions])
+            files = flatten1( [ rev['files'] for rev in revisions])
+            summary = {'when':order[-1][0],  'revision':tag,
+                    'author':', '.join( sorted(list(authorset))), 
+                    'files':sorted(list(files)),
+                    'comments': '\n'.join(
+                ['%s %s on %s at %s:\n%s' % (x[1]['revision'][:8], 
+                                             x[1]['author'], x[1]['gitd'], 
+                                             x[1]['date'], x[1]['message'])
+                 for x in order])}
+            return summary
+        subd.addCallback(summarise)
         return subd
     deferred.addCallback(get_all_revisions)
-    def summarise(revisions):
-        if revisions == []:
-            if offset+index > 0:
-                return describe_tag(tag_format, format_data, index, 
-                                    repositories, offset-1)
-            else:
-                return {}
-        authorset = set( [rev['author'] for rev in revisions])
-        order = sorted( [(rev['commit_time'], rev) for rev in revisions])
-        files = flatten1( [ rev['files'] for rev in revisions])
-        return {'when':order[-1][0],  'revision':tag,
-                'author':', '.join( sorted(list(authorset))), 
-                'files':sorted(list(files)),
-                'comments': '\n'.join(
-            ['%s %s on %s:\n%s' % (x[1]['revision'][:8], 
-                                   x[1]['author'], x[1]['gitd'], 
-                                   x[1]['message'])
-                                for x in order])}
-    deferred.addCallback(summarise)
     return deferred
 
 def tag_branch_if_exists(gitd, tag, branch):
