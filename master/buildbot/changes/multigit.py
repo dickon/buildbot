@@ -282,7 +282,6 @@ def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
         return subd.addCallback(linesplitdropsplit).addCallback(flatten1)
     deferred = sequencer(repositories, callback=find_tag)
     deferred.addCallback(flatten1)
-    deferred.addCallback(show, 'tags matching '+tag_exp)
     def pick_latest(seq):
         ordering = []
         for tag in set(seq):
@@ -529,7 +528,6 @@ class MultiGit(PollingChangeSource):
                 tagdata['when'] = time()
                 if self.newTagCallback:
                     self.newTagCallback( tagdata )
-                print 'tag data',tagdata
                 return self.master.addChange(**tagdata)
             subd.addCallback(store_change)
             def again(failure):
