@@ -393,7 +393,7 @@ class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
     def __init__(self, repositories_directory, tagFormat='BRANCH-INDEX',
-                 ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
+                 ageRequirement=0, pollInterval=10*60,
                  autoFetch=False, newRevisionCallback=None, statusCallback=None,
                  newTagCallback = None, project='',
                  nonScanBranchesRegexp=None,
@@ -402,8 +402,7 @@ class MultiGit(PollingChangeSource):
 
         Create tags in tagFormat when there are revisions on a branch
         whcih are at least ageRequirement seconds old. BRANCH in tag format is
-        replaced by the branch name and INDEX by the tag index, which starts
-        at tagStartingIndex.
+        replaced by the branch name and INDEX by the tag index.
 
         If autoFetch then run a fetch in each repository first.
 
@@ -422,7 +421,6 @@ class MultiGit(PollingChangeSource):
         self.project = project
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
-        self.tagStartingIndex = tagStartingIndex
         self.newRevisionCallback = newRevisionCallback
         self.newTagCallback = newTagCallback
         self.statusCallback = statusCallback
@@ -443,11 +441,8 @@ class MultiGit(PollingChangeSource):
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
         deferred = find_most_recent_tag(self.repositories, self.tagFormat, None)
-        def next( out):
-            print 'out', out
-            (index, tag) = out
+        def next( (index, tag)):
             tag= make_tag(self.tagFormat, branch, index+1)
-            print 'made tag',tag
             return index+1, tag
         return deferred.addCallback(next)
 
