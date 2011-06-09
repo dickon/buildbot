@@ -354,7 +354,7 @@ class MultiGit(PollingChangeSource):
     def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
                  autoFetch=False, newRevisionCallback=None, statusCallback=None,
-                 newTagCallback = None, 
+                 newTagCallback = None, project='',
                  nonScanBranchesRegexp=None,
                  ignoreBranchesRegexp=None, ignoreRepositoriesRegexp=None):
         """Look at git repositories in repositories_directory every pollInterval seconds.
@@ -378,6 +378,7 @@ class MultiGit(PollingChangeSource):
         Occasionaly invokes statusCallback with a trace message as arguments.
         """
         self.repositories_directory = repositories_directory
+        self.project = project
         self.ageRequirement = ageRequirement
         self.pollInterval = pollInterval
         self.tagStartingIndex = tagStartingIndex
@@ -495,6 +496,7 @@ class MultiGit(PollingChangeSource):
                            line.startswith('Author')])
                 extras = {} if description is None else {'comments':description}
                 return self.master.addChange(revision = tag, author=authors,
+                                             project = self.project,
                                              when =tag_time, **extras)
             subd.addCallback(store_change)
             def again(failure):
