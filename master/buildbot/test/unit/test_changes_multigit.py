@@ -192,6 +192,16 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
                 author = None
             self.failUnless(author)
         return deferred.addCallback(check)
+    def test_poll_one_commit_has_file(self):
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
+        deferred.addCallback(lambda _: self.multigit.poll())
+        def check(_):
+            if self.changes_added:
+                files = self.changes_added[0]['files']
+            else:
+                files = None
+            self.failUnless(len(files) == 1 and 'a' in repr(files))
+        return deferred.addCallback(check)
     def test_poll_multi_branches(self):
         deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(lambda _:
