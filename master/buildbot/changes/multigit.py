@@ -175,8 +175,24 @@ def get_metadata(gitd, revision):
         while message.startswith(' ') or  message.startswith('\t'):
             message = message[1:]
         result['message'] = message
+        result['files'] = []
         return result
-    return deferred.addCallback(decode)
+    deferred.addCallback(decode)
+    def file_changes(result):
+        subd = git(gitd, 'diff', '--raw', revision+'^1..'+revision)
+        subd.addCallback(linesplitdropsplit)
+        def annotate(stuff):
+            for line in stuff:
+                result['files'].append(split(gitd)[1]+' '.join(line[6:]))
+            return result
+        subd.addCallback(annotate)
+        def first_cause(failure):
+            failure.trap(UnexpectedExitCode)
+            if 'unknown revision' in failure.value.err and failure.value.exit_code == 128:
+                return result
+            return failure
+        return subd.addErrback(first_cause)
+    return deferred.addCallback(file_changes)
 
 def untagged_revisions(gitd, branch='master'):
     """Return the revisions reachable from branch but not from tags"""
@@ -303,8 +319,10 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
                 return {}
         authorset = set( [rev['author'] for rev in revisions])
         order = sorted( [(rev['commit_time'], rev) for rev in revisions])
+        files = flatten1( [ rev['files'] for rev in revisions])
         return {'when':order[-1][0],  'revision':tag,
                 'author':', '.join( sorted(list(authorset))), 
+                'files':sorted(list(files)),
                 'comments': '\n'.join(
             ['%s on %s:\n%s' % (x[1]['author'], x[1]['gitd'], x[1]['message'])
                                 for x in order])}
@@ -499,6 +517,7 @@ class MultiGit(PollingChangeSource):
                 self.tags[branch] = tag
                 tagdata['project'] = self.project
                 tagdata['branch'] = branch
+                tagdata['when'] = time()
                 if self.newTagCallback:
                     self.newTagCallback( tagdata )
                 return self.master.addChange(**tagdata)
