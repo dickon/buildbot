@@ -264,7 +264,6 @@ def find_most_recent_tag(repositories, tag_format, format_data, index):
     deferred = sequencer(repositories, callback=find_ref, 
                          arguments=['refs/tags/'+tag])
     def check(seq):
-        print 'for', tag, 'seq=', seq
         if seq:
             return tag
         if index > 0:
@@ -285,33 +284,24 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
                                     format_data, index+offset)
     def get_all_revisions(prev):
         def get_revisions(gitd):
-            print 'looking for revisions between', prev, 'and', tag, 'in', gitd
             deferred = git(gitd, 'rev-list', tag, '--not', prev)
             deferred.addCallback(linesplitdropsplit).addCallback(flatten1)
-            deferred.addCallback(show, 'rev-list cleaned output for '+gitd )
             deferred.addCallback(lambda revlist:
                                      sequencer(revlist, callback=(lambda rev: get_metadata(gitd, rev))))
-            deferred.addCallback(show, 'metadata output for '+gitd )
             return deferred.addErrback(silence)    
         subd = sequencer(repositories, callback=get_revisions)
         subd.addCallback(flatten1)
-        subd.addCallback(show, 'all revisions between '+prev+' and '+tag)
         return subd
     deferred.addCallback(get_all_revisions)
     def summarise(revisions):
         if revisions == []:
-            print 'No revisions'
             if offset+index > 0:
-                print 'trying older tag'
                 return describe_tag(tag_format, format_data, index, repositories, offset-1)
             else:
                 return 0, 'no earlier tags'
         order = sorted( [(rev['commit_time'], rev) for rev in revisions])
-        print 'describe tag order',order
-
         return order[-1][0], repr([x[1] for x in order])
     deferred.addCallback(summarise)
-    deferred.addCallback(show, 'describe_tag '+tag+' output')
     return deferred
 
 def tag_branch_if_exists(gitd, tag, branch):
