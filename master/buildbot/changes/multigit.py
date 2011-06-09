@@ -324,7 +324,9 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
                 'author':', '.join( sorted(list(authorset))), 
                 'files':sorted(list(files)),
                 'comments': '\n'.join(
-            ['%s on %s:\n%s' % (x[1]['author'], x[1]['gitd'], x[1]['message'])
+            ['%s %s on %s:\n%s' % (x[1]['revision'][:8], 
+                                   x[1]['author'], x[1]['gitd'], 
+                                   x[1]['message'])
                                 for x in order])}
     deferred.addCallback(summarise)
     return deferred
