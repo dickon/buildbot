@@ -183,7 +183,7 @@ def get_metadata(gitd, revision):
         subd.addCallback(linesplitdropsplit)
         def annotate(stuff):
             for line in stuff:
-                result['files'].append(split(gitd)[1]+(' '.join(line[5:])))
+                result['files'].append(split(gitd)[1]+'/'+(' '.join(line[5:])))
             return result
         subd.addCallback(annotate)
         def first_cause(failure):
@@ -275,10 +275,12 @@ def check_list(deferred_list_output):
 
 def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
     """Find the most recent tag matching tag_format across repositories"""
-    tag_exp = tag_format.replace('BRANCH', safe_branch(branch)).replace('INDEX', '([0-9]+)')
+    tag_exp = tag_format.replace('BRANCH', safe_branch(branch) if branch else
+                                 '[a-zA-Z0-9\._]+').replace('INDEX', '([0-9]+)')
+    
     def find_tag(gitd):
         subd = git(gitd, 'tag', '-l', tag_format.replace(
-                'BRANCH', safe_branch(branch)).replace('INDEX', '*'))
+                'BRANCH', safe_branch(branch) if branch else '*').replace('INDEX', '*'))
         return subd.addCallback(linesplitdropsplit).addCallback(flatten1)
     deferred = sequencer(repositories, callback=find_tag)
     deferred.addCallback(flatten1)
@@ -292,7 +294,9 @@ def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
             index = int(m.group(1))
             ordering.append( (index, tag))
         if len(ordering) >= abs(offset):
-            return sorted(ordering)[offset][1]
+            return sorted(ordering)[offset]
+        else:
+            return (1, make_tag(tag_format, branch, 1))
     return deferred.addCallback(pick_latest)
 
 
@@ -310,7 +314,7 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
     tag on this branch, across repositories"""
     tag = make_tag(tag_format, branch, index)
     deferred = find_most_recent_tag(repositories, tag_format, branch, -2)
-    def get_all_revisions(prev):
+    def get_all_revisions((previ, prev)):
         def get_revisions(gitd):
             if prev is None: 
                 return []
@@ -329,6 +333,7 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
             summary = {'when':order[-1][0] if order else time(),  'revision':tag,
                        'author':', '.join( sorted(list(authorset))), 
                        'files':sorted(list(files)),
+                       'prev':prev,
                        'comments': '\n'.join(
                 ['%s %s on %s at %s:\n%s' % (x[1]['revision'][:8], 
                                              x[1]['author'], x[1]['gitd'], 
@@ -434,22 +439,17 @@ class MultiGit(PollingChangeSource):
     def status(self, message):
         self.lastStatus = message
         if self.statusCallback: 
-            self.statusCallback(message)
+            self.sptatusCallback(message)
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
-        tag = make_tag(self.tagFormat, branch, self.tagStartingIndex)
-        tag_index = self.tagStartingIndex
-        deferred = sequencer(self.repositories, callback=find_ref,
-                             arguments = ['refs/tags/'+tag])
-        def check(hashes):
-            """Check that tag did not exist in all repositories,
-            or try a higher tag number"""
-            if hashes == [None]*len(self.repositories):
-                return tag, tag_index
-            else:
-                return self.find_fresh_tag(branch)
-        self.tagStartingIndex += 1
-        return deferred.addCallback(check)
+        deferred = find_most_recent_tag(self.repositories, self.tagFormat, None)
+        def next( out):
+            print 'out', out
+            (index, tag) = out
+            tag= make_tag(self.tagFormat, branch, index+1)
+            print 'made tag',tag
+            return index+1, tag
+        return deferred.addCallback(next)
 
     def determine_tags(self, newrevs):
         """Figure out if a tag is warranted for each branch"""
@@ -505,9 +505,8 @@ class MultiGit(PollingChangeSource):
         """Create tag on branch"""
         self.status('creating tag for %s' % (branch))
         deferred = self.find_fresh_tag(branch)
-        def set_tag((tag, tag_index)):
+        def set_tag((tag_index, tag)):
             self.status('creating tag %s' % (tag))
-            """Apply tag to all of latestrev"""
             assert str(tag_index) in tag
             subd = sequencer(self.repositories, callback=tag_branch_if_exists,
                              arguments = [tag, branch])
