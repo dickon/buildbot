@@ -277,8 +277,9 @@ def silence(failure):
     return []
 
 def describe_tag(tag_format, format_data, index, repositories, offset=-1):
-    """Return a string describing changes between tag with index and
-    format data and the previous tag on this branch, across repositories"""
+    """Return (tag epoch time, list of revision dictionaries) for
+    revisions between tag with index and format data and the previous
+    tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
     deferred = find_most_recent_tag(repositories, tag_format, 
                                     format_data, index+offset)
