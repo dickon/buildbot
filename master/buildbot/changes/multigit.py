@@ -273,10 +273,10 @@ def check_list(deferred_list_output):
         bad.raiseException()
     return out
 
-def find_most_recent_tag(repositories, tag_format, format_data, index):
+def find_most_recent_tag(repositories, tag_format, branch, index):
     """Find the most recent tag at index or lower across repositories,
     which has tag_format given format_data"""
-    tag = tag_format % dict(format_data, index=index)
+    tag = make_tag(tag_format, branch, index)
     deferred = sequencer(repositories, callback=find_ref, 
                          arguments=['refs/tags/'+tag])
     def check(seq):
@@ -292,13 +292,16 @@ def silence(failure):
     failure.trap(UnexpectedExitCode)
     return []
 
-def describe_tag(tag_format, format_data, index, repositories, offset=-1):
+def make_tag(tag_format, branch, index):
+    return tag_format.replace('BRANCH', safe_branch(branch)).replace('INDEX', str(index))
+
+
+def describe_tag(tag_format, branch, index, repositories, offset=-1):
     """Return (tag epoch time, author, revision descriptions) for
     revisions between tag with index and format data and the previous
     tag on this branch, across repositories"""
-    tag = tag_format % dict(format_data, index=index)
-    deferred = find_most_recent_tag(repositories, tag_format, 
-                                    format_data, index+offset)
+    tag = make_tag(tag_format, branch, index)
+    deferred = find_most_recent_tag(repositories, tag_format, branch, index+offset)
     def get_all_revisions(prev):
         def get_revisions(gitd):
             deferred = git(gitd, 'rev-list', tag, '--not', prev)
@@ -381,7 +384,7 @@ def described_untagged_revisions(gitd, ignoreBranchesRegexp):
 class MultiGit(PollingChangeSource):
     """Track multiple repositories, tagging when new revisions appear
     in some."""
-    def __init__(self, repositories_directory, tagFormat='%(branch)s-%(index)d',
+    def __init__(self, repositories_directory, tagFormat='BRANCH-INDEX',
                  ageRequirement=0, tagStartingIndex = 1, pollInterval=10*60,
                  autoFetch=False, newRevisionCallback=None, statusCallback=None,
                  newTagCallback = None, project='',
@@ -390,9 +393,9 @@ class MultiGit(PollingChangeSource):
         """Look at git repositories in repositories_directory every pollInterval seconds.
 
         Create tags in tagFormat when there are revisions on a branch
-        whcih are at least ageRequirement seconds old. tagFormat is a string format
-        which is interpolated with a  dictionary containing "branch" and "index" fields.
-        The index starts at tagStartingIndex.
+        whcih are at least ageRequirement seconds old. BRANCH in tag format is
+        replaced by the branch name and INDEX by the tag index, which starts
+        at tagStartingIndex.
 
         If autoFetch then run a fetch in each repository first.
 
@@ -433,8 +436,7 @@ class MultiGit(PollingChangeSource):
             self.statusCallback(message)
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
-        tag = self.tagFormat % ( {'branch': safe_branch(branch),
-                                  'index': self.tagStartingIndex})
+        tag = make_tag(self.tagFormat, branch, self.tagStartingIndex)
         tag_index = self.tagStartingIndex
         deferred = sequencer(self.repositories, callback=find_ref,
                              arguments = ['refs/tags/'+tag])
@@ -513,9 +515,7 @@ class MultiGit(PollingChangeSource):
             # we nest our callbacks so that tag stays in scope
             def tag_done(_):
                 """Tagging complete"""
-                return describe_tag(
-                    self.tagFormat, {'branch':safe_branch(branch)}, 
-                    tag_index, self.repositories)
+                return describe_tag(self.tagFormat, branch, tag_index, self.repositories)
             subd.addCallback(tag_done)
             def store_change(tagdata):
                 """Declare change to upstream"""
