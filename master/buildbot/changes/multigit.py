@@ -266,10 +266,10 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     def silence(failure):
         failure.trap(UnexpectedExitCode)
         return ''
-    def git_supress(*args):
+    def git_suppress(*args):
         deferred = git(*args)
         return deferred.addErrback(silence)
-    deferred = sequencer(repositories, callback=git_supress, 
+    deferred = sequencer(repositories, callback=git_suppress, 
                          arguments=['log', prev+'..'+tag])
     def annotate(textlist):
         return 'Differences between %s and %s:\n%s' % (
