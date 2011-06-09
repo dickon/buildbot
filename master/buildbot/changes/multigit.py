@@ -509,9 +509,9 @@ class MultiGit(PollingChangeSource):
         return deferred.addCallback(set_tag)
         
     def describe(self):
-        return 'MultiGit on %s %s %s%s%s.<h2>Tags I made</h2>%r ' \
+        return 'MultiGit for %s on %s %s %s%s%s.<h2>Tags I made</h2>%r ' \
             '<h2>Repositories</h2> <div>%s</div>' % (
-            self.repositories_directory, self.lastStatus, 
+            self.project, self.repositories_directory, self.lastStatus, 
             'unrun' if self.lastFinish is None else 
             '%d seconds ago' % (time() - self.lastFinish), 
             ' ignoring repositories matching '+self.ignoreRepositoriesRegexp if
