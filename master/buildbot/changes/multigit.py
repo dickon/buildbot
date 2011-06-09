@@ -292,7 +292,7 @@ def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
                 continue
             index = int(m.group(1))
             ordering.append( (index, tag))
-        if len(ordering) <= abs(offset):
+        if len(ordering) >= abs(offset):
             return sorted(ordering)[offset][1]
     return deferred.addCallback(pick_latest)
 
@@ -312,7 +312,6 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
     tag = make_tag(tag_format, branch, index)
     deferred = find_most_recent_tag(repositories, tag_format, branch, -2)
     def get_all_revisions(prev):
-        print 'previous tag '+str(prev)
         def get_revisions(gitd):
             if prev is None: 
                 return []
@@ -325,19 +324,13 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
         subd.addCallback(flatten1)
 
         def summarise(revisions):
-            if revisions == []:
-                print 'no revisions from', prev, 'to', tag, 'offset', offset
-                if offset+index > 0:
-                    return describe_tag(tag_format, branch, index, repositories, offset-1)
-                else:
-                    return {}
             authorset = set( [rev['author'] for rev in revisions])
             order = sorted( [(rev['commit_time'], rev) for rev in revisions])
             files = flatten1( [ rev['files'] for rev in revisions])
-            summary = {'when':order[-1][0],  'revision':tag,
-                    'author':', '.join( sorted(list(authorset))), 
-                    'files':sorted(list(files)),
-                    'comments': '\n'.join(
+            summary = {'when':order[-1][0] if order else time(),  'revision':tag,
+                       'author':', '.join( sorted(list(authorset))), 
+                       'files':sorted(list(files)),
+                       'comments': '\n'.join(
                 ['%s %s on %s at %s:\n%s' % (x[1]['revision'][:8], 
                                              x[1]['author'], x[1]['gitd'], 
                                              x[1]['date'], x[1]['message'])
