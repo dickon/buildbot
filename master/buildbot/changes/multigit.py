@@ -437,7 +437,7 @@ class MultiGit(PollingChangeSource):
     def status(self, message):
         self.lastStatus = message
         if self.statusCallback: 
-            self.sptatusCallback(message)
+            self.statusCallback(message)
     def find_fresh_tag(self, branch='master'):
         """Find a fresh tag across all repositories based on self.tagFormat"""
         deferred = find_most_recent_tag(self.repositories, self.tagFormat, None)
@@ -518,6 +518,7 @@ class MultiGit(PollingChangeSource):
                 tagdata['when'] = time()
                 if self.newTagCallback:
                     self.newTagCallback( tagdata )
+                tagdata.pop('prev', None)
                 return self.master.addChange(**tagdata)
             subd.addCallback(store_change)
             def again(failure):
