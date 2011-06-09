@@ -431,8 +431,6 @@ class MultiGit(PollingChangeSource):
         self.lastFinish = None
         self.tags = {} # branch name -> latest tag on that branch
         self.repositories = []
-        self.pollLock = DeferredLock()
-
     def status(self, message):
         self.lastStatus = message
         if self.statusCallback: 
@@ -468,12 +466,10 @@ class MultiGit(PollingChangeSource):
                 branches.add(rev['branch'])
         return sequencer(list(sorted(branches)), callback=self.create_tag)
 
-    @deferredLocked('pollLock')
     def poll(self):
         """Look for untagged revisions at least ageRequirement seconds old, 
         and tag and record them."""
         self.pollStart = time()
-        self.pollRunning = True
         self.status('start polling')
         self.repositories = list(sorted(scan_for_repositories(
                     self.repositories_directory, self.ignoreRepositoriesRegexp)))
