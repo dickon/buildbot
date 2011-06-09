@@ -277,7 +277,7 @@ def silence(failure):
     return []
 
 def describe_tag(tag_format, format_data, index, repositories, offset=-1):
-    """Return (tag epoch time, list of revision dictionaries) for
+    """Return (tag epoch time, author, revision descriptions) for
     revisions between tag with index and format data and the previous
     tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
@@ -297,11 +297,17 @@ def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     def summarise(revisions):
         if revisions == []:
             if offset+index > 0:
-                return describe_tag(tag_format, format_data, index, repositories, offset-1)
+                return describe_tag(tag_format, format_data, index, 
+                                    repositories, offset-1)
             else:
-                return 0, 'no earlier tags'
+                return {}
+        authorset = set( [rev['author'] for rev in revisions])
         order = sorted( [(rev['commit_time'], rev) for rev in revisions])
-        return order[-1][0], repr([x[1] for x in order])
+        return {'when':order[-1][0],  'revision':tag,
+                'author':', '.join( sorted(list(authorset))), 
+                'comments': '\n'.join(
+            ['%s on %s:\n%s' % (x[1]['author'], x[1]['gitd'], x[1]['message'])
+                                for x in order])}
     deferred.addCallback(summarise)
     return deferred
 
@@ -488,17 +494,14 @@ class MultiGit(PollingChangeSource):
                     self.tagFormat, {'branch':safe_branch(branch)}, 
                     tag_index, self.repositories)
             subd.addCallback(tag_done)
-            def store_change((tag_time, description)):
+            def store_change(tagdata):
                 """Declare change to upstream"""
                 self.tags[branch] = tag
+                tagdata['project'] = self.project
+                tagdata['branch'] = branch
                 if self.newTagCallback:
-                    self.newTagCallback( tag, branch)
-                authors = ', '.join([line.split()[-1] for line in description.split('\n') if 
-                           line.startswith('Author')])
-                extras = {} if description is None else {'comments':description}
-                return self.master.addChange(revision = tag, author=authors,
-                                             project = self.project,
-                                             when =tag_time, **extras)
+                    self.newTagCallback( tagdata )
+                return self.master.addChange(**tagdata)
             subd.addCallback(store_change)
             def again(failure):
                 """tag again on failure"""
