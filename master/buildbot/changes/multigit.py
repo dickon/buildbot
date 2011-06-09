@@ -257,32 +257,62 @@ def check_list(deferred_list_output):
         bad.raiseException()
     return out
 
+def find_most_recent_tag(repositories, tag_format, format_data, index):
+    """Find the most recent tag at index or lower across repositories,
+    which has tag_format given format_data"""
+    tag = tag_format % dict(format_data, index=index)
+    deferred = sequencer(repositories, callback=find_ref, 
+                         arguments=['refs/tags/'+tag])
+    def check(seq):
+        print 'for', tag, 'seq=', seq
+        if seq:
+            return tag
+        if index > 0:
+            return find_most_recent_tag(repositories, tag_format, 
+                                        format_data, index-1)
+    return deferred.addCallback(check)
+
+
+def silence(failure):
+    failure.trap(UnexpectedExitCode)
+    return []
 
 def describe_tag(tag_format, format_data, index, repositories, offset=-1):
     """Return a string describing changes between tag with index and
     format data and the previous tag on this branch, across repositories"""
     tag = tag_format % dict(format_data, index=index)
-    prev = tag_format % dict(format_data, index=index+offset)
-    def silence(failure):
-        failure.trap(UnexpectedExitCode)
-        return ''
-    def git_suppress(*args):
-        deferred = git(*args)
-        return deferred.addErrback(silence)
-    deferred = sequencer(repositories, callback=git_suppress, 
-                         arguments=['log', prev+'..'+tag])
-    def annotate(textlist):
-        return 'Differences between %s and %s:\n%s' % (
-            prev, tag, reduce(str.__add__, textlist))
-    deferred.addCallback(annotate)
-    def again(failure):
-        failure.trap(UnexpectedExitCode)
-        if (failure.value.exit_code != 128 or 
-            'unknown revision' not in failure.value.err):
-            return failure
-        if offset > -10000 and index + offset > 0:
-            return describe_tag(tag_format, format_data, index, repositories, offset-1)
-    return deferred.addErrback( again)
+    deferred = find_most_recent_tag(repositories, tag_format, 
+                                    format_data, index+offset)
+    def get_all_revisions(prev):
+        def get_revisions(gitd):
+            print 'looking for revisions between', prev, 'and', tag, 'in', gitd
+            deferred = git(gitd, 'rev-list', tag, '--not', prev)
+            deferred.addCallback(linesplitdropsplit).addCallback(flatten1)
+            deferred.addCallback(show, 'rev-list cleaned output for '+gitd )
+            deferred.addCallback(lambda revlist:
+                                     sequencer(revlist, callback=(lambda rev: get_metadata(gitd, rev))))
+            deferred.addCallback(show, 'metadata output for '+gitd )
+            return deferred.addErrback(silence)    
+        subd = sequencer(repositories, callback=get_revisions)
+        subd.addCallback(flatten1)
+        subd.addCallback(show, 'all revisions between '+prev+' and '+tag)
+        return subd
+    deferred.addCallback(get_all_revisions)
+    def summarise(revisions):
+        if revisions == []:
+            print 'No revisions'
+            if offset+index > 0:
+                print 'trying older tag'
+                return describe_tag(tag_format, format_data, index, repositories, offset-1)
+            else:
+                return 0, 'no earlier tags'
+        order = sorted( [(rev['commit_time'], rev) for rev in revisions])
+        print 'describe tag order',order
+
+        return order[-1][0], repr([x[1] for x in order])
+    deferred.addCallback(summarise)
+    deferred.addCallback(show, 'describe_tag '+tag+' output')
+    return deferred
 
 def tag_branch_if_exists(gitd, tag, branch):
     """Tag branch with tag if it exists"""
@@ -466,7 +496,7 @@ class MultiGit(PollingChangeSource):
                     self.tagFormat, {'branch':safe_branch(branch)}, 
                     tag_index, self.repositories)
             subd.addCallback(tag_done)
-            def store_change(description):
+            def store_change((tag_time, description)):
                 """Declare change to upstream"""
                 self.tags[branch] = tag
                 if self.newTagCallback:
@@ -475,7 +505,7 @@ class MultiGit(PollingChangeSource):
                            line.startswith('Author')])
                 extras = {} if description is None else {'comments':description}
                 return self.master.addChange(revision = tag, author=authors,
-                                             **extras)
+                                             when =tag_time, **extras)
             subd.addCallback(store_change)
             def again(failure):
                 """tag again on failure"""
