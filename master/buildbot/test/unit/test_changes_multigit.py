@@ -182,6 +182,16 @@ class TestMultiGit(unittest.TestCase, changesource.ChangeSourceMixin):
                 when = 0
             self.failUnless(time() - when < 60)
         return deferred.addCallback(check)
+    def test_poll_one_commit_has_author(self):
+        deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
+        deferred.addCallback(lambda _: self.multigit.poll())
+        def check(_):
+            if self.changes_added:
+                author = self.changes_added[0]['author']
+            else:
+                author = None
+            self.failUnless(author)
+        return deferred.addCallback(check)
     def test_poll_multi_branches(self):
         deferred = add_commit(self.repos[0].workd, 'a', 'b', 'xyzzy')
         deferred.addCallback(lambda _:
