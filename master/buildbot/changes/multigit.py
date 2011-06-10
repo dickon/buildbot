@@ -296,7 +296,7 @@ def find_most_recent_tag(repositories, tag_format, branch, offset=-1):
         if len(ordering) >= abs(offset):
             return sorted(ordering)[offset]
         else:
-            return (1, make_tag(tag_format, branch, 1))
+            return (None, None)
     return deferred.addCallback(pick_latest)
 
 
@@ -316,9 +316,10 @@ def describe_tag(tag_format, branch, index, repositories, offset=-1):
     deferred = find_most_recent_tag(repositories, tag_format, branch, -2)
     def get_all_revisions((previ, prev)):
         def get_revisions(gitd):
-            if prev is None: 
-                return []
-            deferred = git(gitd, 'rev-list', tag, '--not', prev)
+            if prev is not None:
+                deferred = git(gitd, 'rev-list', tag, '--not', prev)
+            else:
+                deferred = git(gitd, 'rev-list', tag, '--not', 'master')
             deferred.addCallback(linesplitdropsplit).addCallback(flatten1)
             deferred.addCallback(lambda revlist:
                                      sequencer(revlist, callback=(lambda rev: get_metadata(gitd, rev))))
@@ -477,7 +478,7 @@ class MultiGit(PollingChangeSource):
         def auto_fetch(_):
             self.status('fetching')
             return sequencer(self.repositories, callback=git, 
-                             arguments=['fetch'])
+                             arguments=['fetch', '-n'])
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
         deferred.addCallback(lambda _: 
@@ -519,7 +520,8 @@ class MultiGit(PollingChangeSource):
                 if self.newTagCallback:
                     self.newTagCallback( tagdata )
                 tagdata.pop('prev', None)
-                return self.master.addChange(**tagdata)
+                if tagdata['files']:
+                    return self.master.addChange(**tagdata)
             subd.addCallback(store_change)
             def again(failure):
                 """tag again on failure"""
