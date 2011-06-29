@@ -585,8 +585,7 @@ class MailNotifier(base.StatusReceiverMultiService):
             if ss and ss.patch and self.addPatch:
                 patches.append(ss.patch)
             if self.addLogs:
-                logs.append(build.getLogs())
-            twlog.err("LOG: %s" % str(logs))
+                logs.extend(build.getLogs())
             
             tmp = self.buildMessageDict(name=build.getBuilder().name,
                                         build=build, results=build.results)
