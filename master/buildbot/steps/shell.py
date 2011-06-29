@@ -553,11 +553,7 @@ class WarningCountingShellCommand(ShellCommand):
 
     def evaluateCommand(self, cmd):
         if ( cmd.rc != 0 or
-<<<<<<< HEAD
            ( self.maxWarnCount != None and self.warnCount > self.maxWarnCount ) ):
-=======
-           ( self.maxWarnings != None and self.warnCount > self.maxWarnings ) ):
->>>>>>> Add optional warning threshold to warning counting shell commands
             return FAILURE
         if self.warnCount:
             return WARNINGS
