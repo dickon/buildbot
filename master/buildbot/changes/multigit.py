@@ -478,7 +478,7 @@ class MultiGit(PollingChangeSource):
         def auto_fetch(_):
             self.status('fetching')
             return sequencer(self.repositories, callback=git, 
-                             arguments=['fetch', '-n'])
+                             arguments=['fetch', '--no-tags', 'origin', 'master'])
         if self.autoFetch:
             deferred.addCallback(auto_fetch)
         deferred.addCallback(lambda _: 
